@@ -1,0 +1,240 @@
+/** Adaptación específica: notebook, iPad, iPad Mini y teléfono. */
+@media (max-width:1280px){
+  .capacity-hero{grid-template-columns:130px 1fr 1.3fr}.capacity-trend{grid-column:2/4}.state-kpi-grid{grid-template-columns:repeat(3,1fr)}
+  .form-grid{grid-template-columns:repeat(2,1fr)}
+}
+
+/* Búsquedas y filtros: densidad adaptativa sin alterar su lógica */
+:where(.stock-toolbar, .report-filterbar, .ops-filter-bar, .history-toolbar, .inventory-filters, .code-toolbar, .lote-search) :where(input, select, textarea),
+:where(.gruero-scan, #ioScanForm, .manual-load, .hud-search) :where(input, select, textarea) {
+  min-width: 0;
+  max-width: 100%;
+  font-size: clamp(.82rem, .78rem + .12vw, .91rem);
+}
+
+@media (min-width: 701px) and (max-width: 1100px) {
+  .stock-toolbar, .report-filterbar, .ops-filter-bar {
+    display: grid;
+    grid-template-columns: minmax(210px, 1.6fr) repeat(2, minmax(145px, .8fr));
+    align-items: end;
+    gap: 10px;
+  }
+  .stock-toolbar > :where(.stock-export, .stock-action),
+  .report-filterbar > :where(.report-export-wrap, .report-clear) { align-self: end; }
+  .history-toolbar { gap: 9px; }
+}
+
+@media (max-width: 700px) {
+  .stock-toolbar, .report-filterbar, .ops-filter-bar,
+  .history-toolbar, .inventory-filters, .lote-search {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 9px;
+    width: 100%;
+  }
+  :where(.stock-toolbar, .report-filterbar, .ops-filter-bar, .history-toolbar, .inventory-filters, .lote-search) > * { min-width: 0; width: 100%; }
+  :where(.stock-toolbar, .report-filterbar, .ops-filter-bar, .history-toolbar, .inventory-filters, .code-toolbar, .lote-search) :where(input, select) {
+    width: 100%;
+    min-height: 44px;
+    font-size: clamp(.86rem, 3.55vw, .96rem);
+  }
+  .lote-search { grid-template-columns: minmax(0,1fr) minmax(104px,.42fr); }
+  .lote-search label { grid-column: 1 / -1; }
+  .lote-search button { min-height: 46px; }
+  .gruero-scan > div, #ioScanForm > div, .manual-load, .hud-search {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) minmax(96px,.38fr);
+    gap: 8px;
+  }
+  .gruero-scan input, #ioScanForm input, .manual-load input, .hud-search input { grid-column: 1 / -1; min-height: 48px; font-size: .94rem; }
+  .gruero-scan button, #ioScanForm button, .manual-load button, .hud-search button { min-height: 48px; }
+}
+
+@media (max-width: 390px) {
+  .lote-search { grid-template-columns: 1fr; }
+  .gruero-scan > div, #ioScanForm > div, .manual-load, .hud-search { grid-template-columns: 1fr 1fr; }
+}
+
+/* El scroll táctil sigue activo; solo se oculta la barra visual en tablas. */
+@media (max-width: 1100px) {
+  .ops-table-scroll, .stock-table-scroll, .report-table-scroll {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .ops-table-scroll::-webkit-scrollbar,
+  .stock-table-scroll::-webkit-scrollbar,
+  .report-table-scroll::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+@media (max-width:1024px){
+  .sidebar{position:fixed;inset:0 auto 0 0;width:300px;max-width:84vw;height:100dvh;transform:translateX(-102%);box-shadow:14px 0 36px rgba(0,0,0,.45)}
+  .sidebar.collapsed{width:300px}.sidebar.mobile-open{transform:translateX(0)}.sidebar-close-mobile{display:block}.sidebar.collapsed .sidebar-tools{flex-direction:row}.sidebar.collapsed .sidebar-tools b,.sidebar.collapsed .sidebar-caption,.sidebar.collapsed .sidebar-version,.sidebar.collapsed .nav-group-toggle b,.sidebar.collapsed .nav-group-toggle i{display:initial}.sidebar.collapsed .nav-group-toggle{display:grid;justify-content:initial}.sidebar.collapsed .nav-submenu{padding-left:16px}.sidebar.collapsed .btn-logout{display:block}.sidebar.collapsed .sidebar-brand-text,.sidebar.collapsed .nav-label,.sidebar.collapsed .nav-group-title,.sidebar.collapsed .user-info{display:flex!important}.sidebar.collapsed .sidebar-brand{justify-content:flex-start;padding:14px 16px}.sidebar.collapsed .nav-item{justify-content:flex-start;padding:8px 10px}
+  .analysis-grid,.monitor-grid{gap:13px}.capacity-hero{grid-template-columns:120px 1fr}.capacity-stats{grid-column:1/3}.capacity-trend{grid-column:1/3}.state-kpi-grid{grid-template-columns:repeat(3,1fr)}
+}
+@media (max-width:820px){
+  .top-header{height:64px;min-height:64px}.header-logo{display:none}.header-user>div:last-child{display:none}.sync-button span{display:none}.sync-button{font-size:1rem;padding:7px 11px}.panel-control-view{padding:18px}.capacity-hero{grid-template-columns:105px 1fr}.capacity-ring{width:105px}.capacity-stats{grid-column:1/3}.state-kpi-grid{grid-template-columns:repeat(2,1fr)}.analysis-grid,.monitor-grid{grid-template-columns:1fr}.monitor-stats{grid-template-columns:repeat(2,1fr)}.chart-card{min-height:310px}.monitor-card,.monitor-card.compact{height:auto;min-height:230px}.form-two-cols{grid-template-columns:1fr}.detail-grid{grid-template-columns:1fr}.filter-bar{grid-template-columns:1fr 1fr}.filter-bar label:first-child{grid-column:1/3}.form-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:600px){
+  .top-header{padding:0 10px}.header-left{gap:8px;flex:1}.btn-toggle-sidebar{padding:7px 10px}.top-header .header-title h2{font-size:.84rem}.header-title p{font-size:.48rem}.header-user{display:none}.panel-control-view{padding:13px;gap:14px}.panel-view-head{align-items:flex-start}.panel-view-head h1{font-size:1.25rem}.panel-view-head p{font-size:.72rem}.capacity-hero{grid-template-columns:86px 1fr;padding:16px;gap:14px}.capacity-ring{width:86px}.capacity-ring:before{inset:8px}.capacity-ring strong{font-size:1.25rem}.capacity-main h2{font-size:1.45rem}.capacity-main p{font-size:.65rem}.capacity-stats{grid-template-columns:repeat(3,1fr);gap:0}.capacity-stats div{padding:10px 7px}.capacity-stats b{font-size:1rem}.capacity-stats span{font-size:.57rem}.capacity-trend{grid-column:1/3}.state-kpi-grid{grid-template-columns:1fr 1fr;gap:8px}.state-kpi{min-height:132px;padding:13px}.state-kpi>strong{font-size:1.55rem}.state-name{font-size:.57rem;letter-spacing:.25px}.state-foot{font-size:.59rem}.analysis-grid{gap:10px}.chart-card{padding:15px;min-height:285px}.chart-body{min-height:210px}.donut-layout{gap:15px}.donut{width:125px;height:125px}.chart-legend span{font-size:.57rem}.chart-bars.horizontal .chart-bar-item{grid-template-columns:52px 1fr 62px}.monitor-stats{gap:8px}.monitor-stat{padding:13px}.monitor-stat strong{font-size:1.35rem}.module-tabs{display:grid;grid-template-columns:1fr}.module-tabs button{width:100%}.filter-bar{grid-template-columns:1fr}.filter-bar label:first-child{grid-column:auto}.record-card{padding:11px;gap:9px}.record-icon{width:34px;height:34px}.record-main small{font-size:.61rem}.detail-kpis,.turn-summary{grid-template-columns:1fr}.form-section{padding:14px}.form-section-title{align-items:stretch;flex-direction:column}.form-section-title label{width:100%}.dynamic-row{display:grid;grid-template-columns:1fr 44px}.dynamic-row .form-control{grid-column:1}.dynamic-row>button{grid-column:2;grid-row:1/-1;width:40px}.dynamic-row input[type=number]{max-width:none}.form-grid{grid-template-columns:1fr}.form-top-actions{align-items:flex-start;gap:7px}.danger-btn{padding:8px}.form-submit .btn-primary{width:100%}.camera-hud-wrapper{flex-direction:column;height:auto;padding:12px;align-items:stretch}.pallet-drawer-container{width:100vw}
+}
+/* ------------------------------------------------------------------
+   Telefono angosto (iPhone SE / Galaxy S23 Ultra, que reporta 375 px).
+   Antes este tramo rompia la continuidad con el telefono ancho: las
+   tarjetas de estado caian a UNA columna y el bloque de capacidad se
+   desarmaba en vertical, asi que a 375 px la vista no se parecia en
+   nada a la de 440 px. Se mantiene la misma estructura que en el
+   telefono ancho — dos columnas de tarjetas y el anillo al lado de la
+   cifra — y solo se aprieta el espaciado.
+   ------------------------------------------------------------------ */
+@media (max-width:390px){
+  /* El subtitulo de la barra superior YA NO se oculta. Antes desaparecia
+     por debajo de 390 px, asi que en un iPhone SE o un S23 Ultra se perdia
+     "SISTEMA FRIGORIFICO PARRAL / En linea", que si esta a 412 y a 440.
+     Se deja visible y ajustado para que la barra se lea igual en los dos
+     telefonos, sin crecer de alto. */
+  /* Doble clase: `.header-title p` tambien se declara en theme-system.css,
+     que carga despues; con `.top-header` delante gana sin !important. */
+  .top-header .header-title p{display:block;font-size:.52rem;line-height:1.3}
+  .state-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .monitor-stats{grid-template-columns:1fr 1fr}
+  .donut-layout{flex-direction:column;height:auto}
+  .chart-body{min-height:230px}
+}
+@media (max-height:600px) and (max-width:1024px){.top-header{height:56px;min-height:56px}.sidebar-brand{min-height:58px}.sidebar-tools{padding-block:6px}.nav-item{padding-block:6px}}
+/* Mantiene la nueva densidad del resumen sin sacrificar lectura táctil. */
+@media (max-width:640px){.panel-control-view .state-kpi{min-height:105px;padding:9px 10px}.panel-control-view .state-kpi>strong{font-size:1.34rem}}
+@media (prefers-reduced-motion:reduce){.sidebar,.nav-submenu,.state-kpi,.record-card,.live-chip i{transition-duration:.01ms!important;animation-duration:.01ms!important}}
+
+/* Encabezado compacto: menú a la izquierda, contexto centrado y acciones a la derecha. */
+@media (max-width:820px){.header-context{justify-content:center}.header-user{display:flex}.header-user>div:last-child{display:none}.user-overlay-menu{right:0}}
+@media (max-width:600px){.top-header{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:6px;padding:0 8px}.header-left{display:block;min-width:0}.btn-toggle-sidebar{width:36px;height:36px;padding:0;justify-content:center}.header-context{min-width:0;justify-content:center}.header-title{text-align:center;width:100%}.top-header .header-title h2{font-size:.78rem}.header-actions{gap:5px}.sync-button{width:36px;height:36px;padding:0;border-radius:9px}.header-user{width:36px;height:36px;padding:1px;border-radius:9px;justify-content:center}.header-user .user-avatar{width:30px;height:30px}.user-overlay-menu{position:absolute;top:calc(100% + 11px);right:0;width:min(284px,calc(100vw - 16px));text-align:left}}
+
+/* Tablet: el título muestra solo el módulo y recupera la identidad completa. */
+@media (min-width:641px) and (max-width:820px){
+  .top-header{grid-template-columns:auto minmax(120px,1fr) auto;gap:10px;padding-inline:13px}
+  .header-context{justify-content:flex-start}
+  .header-user{display:flex;min-width:150px;max-width:205px;padding:5px 10px;gap:8px}
+  .header-user>div:last-child{display:flex;min-width:0;flex-direction:column}
+  .header-user b,.header-user span{display:block;max-width:145px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .header-user .user-avatar{flex:0 0 32px}
+}
+
+/* ============================================================
+   Barra de filtros de Stock en Planta. Pasa de 4 a 6 controles
+   (Buscar, Almacen, Estado, Detector, Exportar, Limpiar), asi
+   que se reparte por tramos con una grilla de 12 columnas.
+   En telefono LIMPIAR va junto a BUSCAR, como en Movimientos:
+   los botones no ocupan una linea entera para ellos solos.
+   Se usa :where() en los selectores base del proyecto, por eso
+   basta con .stock-view .stock-toolbar para ganar sin !important.
+   ============================================================ */
+.stock-view .stock-toolbar{
+  display:grid;
+  grid-template-columns:minmax(200px,1.5fr) repeat(3,minmax(0,.92fr)) auto auto;
+  align-items:end;gap:10px;
+}
+.stock-view .stock-toolbar>.stock-search{grid-column:auto}
+.stock-view .stock-toolbar>.stock-export,
+.stock-view .stock-toolbar>.stock-clear{align-self:end}
+
+@media (max-width:1200px){
+  .stock-view .stock-toolbar{grid-template-columns:repeat(12,minmax(0,1fr))}
+  .stock-view .stock-toolbar>.stock-search{order:1;grid-column:span 8}
+  .stock-view .stock-toolbar>.stock-clear{order:2;grid-column:span 4}
+  .stock-view .stock-toolbar>.stock-filter-almacen{order:3;grid-column:span 3}
+  .stock-view .stock-toolbar>.stock-filter-estado{order:4;grid-column:span 3}
+  .stock-view .stock-toolbar>.stock-filter-detector{order:5;grid-column:span 3}
+  .stock-view .stock-toolbar>.stock-export{order:6;grid-column:span 3}
+}
+@media (max-width:700px){
+  .stock-view .stock-toolbar{gap:9px}
+  .stock-view .stock-toolbar>.stock-search{grid-column:span 7}
+  .stock-view .stock-toolbar>.stock-clear{grid-column:span 5}
+  .stock-view .stock-toolbar>.stock-filter-almacen,
+  .stock-view .stock-toolbar>.stock-filter-estado,
+  .stock-view .stock-toolbar>.stock-filter-detector,
+  .stock-view .stock-toolbar>.stock-export{grid-column:span 6}
+}
+/* Muy angosto: el par Buscar/Limpiar ya no cabe repartido, pasa a mitades. */
+@media (max-width:372px){
+  .stock-view .stock-toolbar>.stock-search,
+  .stock-view .stock-toolbar>.stock-clear{grid-column:span 12}
+}
+
+/* El boton Limpiar sigue el mismo patron visual que el de Movimientos:
+   icono + texto y, cuando hay filtros puestos, el contador debajo. */
+.stock-view .stock-clear{display:grid;grid-template-columns:auto 1fr;align-items:center;gap:4px 7px;text-align:left}
+.stock-view .stock-clear>.wi{grid-row:1/span 2;width:15px;height:15px}
+.stock-view .stock-clear>small{grid-column:2;font-size:.55rem;font-weight:700;color:#38bdf8}
+.stock-view .stock-clear:not(.has-active)>.wi,
+.stock-view .stock-clear:not(.has-active){color:var(--text-muted)}
+.stock-view .stock-clear.has-active{border-color:rgba(56,189,248,.45);color:var(--text-main)}
+.stock-view .stock-export>.stock-action{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.stock-view .stock-export>.stock-action>.wi{width:14px;height:14px}
+/* El menu de Exportar ya no nace en el borde izquierdo de la barra: ahora
+   comparte fila con los filtros, asi que en telefono se abre hacia adentro
+   para no salirse de la pantalla. */
+@media (max-width:700px){
+  .stock-view .stock-export-menu{left:auto;right:0;width:min(250px,calc(100vw - 34px))}
+}
+
+/* ============================================================
+   Bitacora y Registro de Verificaciones en movil y tablet.
+   Las fichas del resumen (eventos / verificados / rechazados /
+   reproceso) y las tarjetas de cada turno quedaban diminutas:
+   texto de .6rem en chips de 5px de padding y una sola linea
+   recortada con puntos suspensivos. Aqui se agrandan al tamano
+   que corresponde a una pantalla tactil, sin tocar el HTML.
+   Aplica a las cuatro pantallas: Visualizar y Modificar datos
+   de las dos vistas, porque comparten estas clases.
+   Se usa !important solo donde la regla original ya lo traia
+   (.bit-filter-metrics nace con display:flex!important).
+   ============================================================ */
+@media (max-width:1023px){
+  .ver-filter-summary{gap:9px;padding:13px 14px;border-radius:14px}
+  .ver-filter-summary>div:first-child{align-items:baseline;gap:8px}
+  .ver-filter-summary>div:first-child>b{font-size:1.5rem}
+  .ver-filter-summary>div:first-child>span{font-size:.75rem;font-weight:700;color:var(--text-muted)}
+  .ver-filter-summary>small{font-size:.68rem;line-height:1.45}
+
+  /* Chips -> fichas de dos lineas: numero grande arriba, rotulo abajo.
+     El rotulo es un nodo de texto suelto; al poner display:grid en el
+     span pasa a ser un item anonimo y cae en su propia fila. */
+  .bit-filter-metrics{
+    display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));
+    align-items:stretch!important;gap:8px!important;margin:2px 0 0!important;
+  }
+  .bit-filter-metrics>span{
+    display:grid;align-content:center;gap:2px;min-height:54px;
+    padding:9px 11px!important;border:1px solid var(--border-color);border-radius:11px;
+    background:color-mix(in srgb,var(--card-bg) 72%,transparent);
+    font-size:.6rem;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--text-dim);
+  }
+  .bit-filter-metrics>span>strong{
+    margin:0!important;font:850 1.2rem var(--font-heading);letter-spacing:0;text-transform:none;
+  }
+
+  /* Tarjeta de turno: mas alta, fecha mas grande y el detalle en
+     varias lineas en vez de recortarse con puntos suspensivos. */
+  .record-card{align-items:flex-start;gap:12px;padding:15px;border-left-width:4px;border-radius:14px}
+  .record-icon{width:44px;height:44px;flex:0 0 44px;font-size:1.1rem}
+  .record-main>span{flex-wrap:wrap;gap:7px}
+  .record-main>span>b{font-size:1rem}
+  .record-main i{padding:4px 9px;font-size:.66rem}
+  .record-main small{margin-top:7px;font-size:.73rem;line-height:1.55;white-space:normal;overflow:visible;text-overflow:clip}
+  .record-card>b:last-child{align-self:center;font-size:1.05rem}
+  .ver-record-status{align-self:center}
+}
+/* En tablet hay ancho de sobra para las cuatro fichas en una fila. */
+@media (min-width:701px) and (max-width:1023px){
+  .bit-filter-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+
+/* Telefono muy angosto (320 px): el subtitulo se aprieta un punto mas para
+   no pasar de dos lineas y salirse de la barra. Va al final del archivo a
+   proposito: el tramo de 390 px lo declara antes y ganaria por orden. */
+@media (max-width:345px){
+  .top-header .header-title p{font-size:.45rem;letter-spacing:0;line-height:1.25}
+}

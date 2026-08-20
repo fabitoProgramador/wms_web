@@ -1,0 +1,411 @@
+/* Módulo Operaciones — estilos encapsulados. */
+.operations-view{padding:clamp(14px,2vw,26px);min-height:100%;display:flex;flex-direction:column;gap:10px;max-width:1680px;margin:auto}.ops-section-label,.ops-intro{color:var(--text-muted);font-size:.72rem;font-weight:750;letter-spacing:.7px}.ops-filter-bar{display:grid;gap:12px;align-items:end;padding:11px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:10px}.ops-filter-bar label,.ops-bottom-panel label{font-size:.65rem;color:var(--text-muted);font-weight:700}.ops-filter-bar .form-control,.ops-bottom-panel .form-control{margin-top:5px}.ops-link{border:0;background:transparent;color:#38bdf8;font-size:.68rem;font-weight:800;padding:12px;cursor:pointer;white-space:nowrap}.ops-results,.dispatch-table-area,.approval-table-shell{min-height:190px;flex:0 1 auto;display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--border-color);border-radius:10px;background:var(--card-bg);position:relative}.ops-table-shell{min-height:0;flex:1 1 auto;display:flex;flex-direction:column}.check-col{width:42px!important;text-align:center!important}.ops-badge{display:inline-block;padding:4px 7px;border-radius:5px;background:var(--badge);color:#061018;font-size:.55rem;font-weight:850;white-space:nowrap}.cell-text{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;width:100%;max-width:220px;border:0;background:transparent;color:var(--text-main);text-align:left;font-size:.63rem;line-height:1.3;cursor:pointer}.kilos{color:#10b981}.lote-code{font-family:Consolas,monospace;color:#38bdf8!important;font-weight:800}.load-more{margin:10px auto;padding:9px 15px;border:1px solid #38bdf8;border-radius:8px;background:transparent;color:#38bdf8;font-size:.68rem;font-weight:750;cursor:pointer}.result-count{text-align:center;padding:9px;color:var(--text-dim);font-size:.62rem}.ops-empty{flex:1;min-height:150px;display:grid;place-items:center;padding:20px;color:var(--text-dim);font-size:.73rem;text-align:center}.ops-bottom-panel{padding:13px 15px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:10px}.ops-bottom-panel h3{margin-bottom:8px;color:#10b981;font-size:.7rem;letter-spacing:.5px}.ops-bottom-panel.dispatch h3{color:#fda4af}.ops-bottom-grid{display:grid;align-items:end;gap:12px}.movement-grid{grid-template-columns:210px minmax(260px,1fr) 130px}.dispatch-grid{grid-template-columns:210px 205px minmax(240px,1fr) 130px}.dispatch-grid:not(:has(label:nth-of-type(3))){grid-template-columns:210px minmax(260px,1fr) 130px}.reason-field textarea{resize:vertical;min-height:50px;max-height:90px}.ops-action{min-height:42px;padding:9px 13px;border:1px solid var(--border-color);border-radius:8px;background:var(--card-bg);color:var(--text-main);font-size:.67rem;font-weight:800;cursor:pointer;white-space:nowrap}.ops-action:disabled{opacity:.6;cursor:wait}
+/* EJECUTAR sin lotes cargados: no hay nada que aplicar, asi que el boton
+   queda inerte en vez de dejar pulsar y responder con un error. */
+.ops-bottom-panel.dispatch .ops-action:disabled{opacity:.45;cursor:not-allowed}.ops-action.success{background:#10b981;border-color:#10b981;color:#fff}.ops-action.dark{background:#0f172a;color:#fff}.ops-action.approve{border-color:#10b981;color:#10b981}.ops-action.reprocess{border-color:#f59e0b;color:#f59e0b}.ops-action.reject{border-color:#ef4444;color:#ef4444}.ops-error{min-height:16px;color:#ef4444;font-size:.67rem;margin-top:5px}.ops-title-row{display:flex;justify-content:space-between;align-items:center;gap:12px}.lot-search-trigger{width:260px;padding:10px 17px;border:1px solid var(--border-color);border-radius:999px;background:var(--card-bg);color:var(--text-muted);font-size:.7rem;text-align:left;cursor:pointer}.lot-search-trigger:hover{border-color:#38bdf8}.approval-actions{display:flex;align-items:center;gap:14px;padding:13px;background:var(--card-bg);border:1px solid var(--border-color);border-radius:10px}.approval-actions>i{height:36px;width:1px;background:var(--border-color)}.approval-actions>div{display:flex;gap:8px;flex-wrap:wrap}.common-reason{padding:11px;border:1px solid #38bdf8;border-radius:8px;background:rgba(56,189,248,.08);font-size:.69rem;font-weight:700}.reason-input{width:270px;min-height:36px;padding:7px 9px;font-size:.65rem}.ops-modal-backdrop{position:fixed;inset:0;z-index:500;background:rgba(2,6,12,.7);display:grid;place-items:center;padding:16px}.ops-modal{width:min(460px,100%);background:var(--card-solid);border:1px solid var(--border-color);border-radius:13px;padding:18px;box-shadow:0 24px 60px rgba(0,0,0,.5)}.ops-modal header{display:flex;justify-content:space-between;align-items:center}.ops-modal header button{width:32px;height:32px;border:1px solid var(--border-color);border-radius:8px;background:transparent;color:var(--text-main);font-size:1.2rem;cursor:pointer}
+.ops-modal p{margin:18px 0;color:var(--text-muted);font-size:.8rem;line-height:1.5;white-space:pre-wrap}.ops-modal footer{display:flex;justify-content:flex-end}.ops-toast.error{background:#ef4444}.ops-toast.warning{background:#f59e0b;color:#111827}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:1280px){.dispatch-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dispatch-grid .reason-field{grid-column:1/2}.dispatch-grid .ops-action{grid-column:2}.movement-grid{grid-template-columns:190px minmax(230px,1fr) 120px}}
+@media(max-width:900px){.movement-grid{grid-template-columns:1fr 1fr}.movement-grid .reason-field{grid-column:2}.movement-grid .ops-action{grid-column:2;justify-self:end}.approval-actions{align-items:stretch;flex-direction:column}.approval-actions>i{width:100%;height:1px}.approval-actions>div{display:grid;grid-template-columns:repeat(3,1fr)}.approval-actions .ops-action{white-space:normal}}
+@media(max-width:600px){.operations-view{padding:12px;gap:9px}.ops-bottom-panel{padding:12px}.movement-grid,.dispatch-grid,.dispatch-grid:not(:has(label:nth-of-type(3))){grid-template-columns:1fr}.movement-grid .reason-field,.movement-grid .ops-action,.dispatch-grid .reason-field,.dispatch-grid .ops-action{grid-column:1}.movement-grid .ops-action,.dispatch-grid .ops-action{width:100%}.ops-title-row{align-items:stretch;flex-direction:column}.lot-search-trigger{width:100%}.approval-actions>div{grid-template-columns:1fr}.ops-modal{max-height:80dvh;overflow:auto}}
+
+/* Alineación de formularios y acciones: no cambia lógica ni campos. */
+.ops-filter-bar label,.ops-bottom-panel label{display:flex;min-width:0;flex-direction:column;gap:5px;line-height:1.25}.ops-filter-bar .form-control,.ops-bottom-panel .form-control{height:42px;min-height:42px;margin-top:0}.ops-bottom-panel textarea.form-control{height:auto;min-height:58px;padding-top:10px;padding-bottom:10px;line-height:1.35}.ops-bottom-grid{align-items:end}.ops-bottom-grid>.ops-action{align-self:end;min-height:42px}.ops-filter-bar .ops-link{min-height:42px;align-self:end;display:inline-flex;align-items:center;justify-content:center}.ops-bottom-panel h3{display:flex;align-items:center;min-height:20px;margin-bottom:11px}.movement-grid{grid-template-columns:minmax(210px,.7fr) minmax(300px,1.55fr) minmax(132px,.38fr)}.dispatch-grid{grid-template-columns:minmax(210px,.72fr) minmax(205px,.7fr) minmax(300px,1.5fr) minmax(132px,.38fr)}.dispatch-grid:not(:has(label:nth-of-type(3))){grid-template-columns:minmax(210px,.72fr) minmax(300px,1.5fr) minmax(132px,.38fr)}.approval-actions>div{align-items:stretch}.approval-actions .ops-action{min-height:42px}
+@media(max-width:1280px){.movement-grid{grid-template-columns:minmax(190px,.72fr) minmax(260px,1.5fr) minmax(126px,.4fr)}.dispatch-grid .reason-field{grid-column:1/2}.dispatch-grid .ops-action{grid-column:2;align-self:end}}
+@media(max-width:900px){.ops-filter-bar{align-items:end}.movement-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.movement-grid .reason-field{grid-column:2}.movement-grid .ops-action{grid-column:2;justify-self:end}.ops-bottom-grid>.ops-action{width:100%}.dispatch-grid .reason-field{grid-column:1/2}.dispatch-grid .ops-action{grid-column:2}.approval-actions .ops-action{min-height:44px}}
+@media(max-width:600px){.ops-filter-bar label,.ops-bottom-panel label{gap:6px}.ops-filter-bar .form-control,.ops-bottom-panel .form-control{height:44px;min-height:44px}.ops-bottom-panel textarea.form-control{min-height:82px}.ops-filter-bar .ops-link{width:100%;min-height:44px}.ops-bottom-grid{gap:11px}.movement-grid .ops-action,.dispatch-grid .ops-action{min-height:46px}.ops-bottom-panel h3{line-height:1.35}}
+
+/* Ajuste fino tablet: conserva los campos y acciones, solo aprovecha mejor el ancho. */
+@media (min-width:701px) and (max-width:900px){
+  .movement-grid{
+    grid-template-columns:minmax(165px,.72fr) minmax(300px,1.55fr) minmax(110px,.4fr)
+  }
+  .movement-grid .reason-field,.movement-grid .ops-action{
+    grid-column:auto
+  }
+  .movement-grid .ops-action{
+    width:auto;
+    justify-self:stretch
+  }
+  /* Cuatro columnas no caben en tablet sin estrangular los selectores
+     (145px frente a opciones de ~190px). Se reparte en dos columnas. */
+  .dispatch-grid{
+    grid-template-columns:repeat(2,minmax(0,1fr))
+  }
+  .dispatch-grid:not(:has(label:nth-of-type(3))){
+    grid-template-columns:repeat(2,minmax(0,1fr))
+  }
+  .dispatch-grid .reason-field,.dispatch-grid .ops-action{
+    grid-column:auto
+  }
+  .dispatch-grid .ops-action{
+    width:auto;
+    justify-self:stretch
+  }
+}
+
+/* La regla móvil se reafirma al final para no quedar anulada por ajustes base previos. */
+@media (max-width:600px){
+  .movement-grid,
+  .dispatch-grid,
+  .dispatch-grid:not(:has(label:nth-of-type(3))){
+    grid-template-columns:minmax(0,1fr)
+  }
+  .movement-grid .reason-field,
+  .movement-grid .ops-action,
+  .dispatch-grid .reason-field,
+  .dispatch-grid .ops-action{
+    grid-column:1;
+    width:100%;
+    justify-self:stretch
+  }
+}
+
+/* .operations-view crece con su contenido (min-height:100%): quien acota
+   la lista es .ops-card-list con su alto por filas, y lo que sobra hace
+   scrollear .main-viewport. Ver el bloque 'ALTO DE LA LISTA' mas abajo. */
+.ops-filter-bar select.form-control{height:38px;min-height:38px;padding:7px 30px 7px 10px;font-size:.66rem}
+@media(max-width:600px){.ops-filter-bar select.form-control{height:44px;min-height:44px;font-size:.72rem}}
+
+/* Gestión de Aprobaciones — centro de decisión responsive. */
+.approval-command-center{display:grid;gap:14px;padding:clamp(14px,1.6vw,22px);border:1px solid var(--border-color);border-radius:16px;background:linear-gradient(145deg,color-mix(in srgb,var(--card-bg) 94%,#0ea5e9 6%),var(--card-bg));box-shadow:0 14px 36px rgba(2,8,23,.08)}
+.approval-command-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px}.approval-command-heading h2{margin:3px 0 4px;color:var(--text-main);font-size:clamp(.95rem,1.35vw,1.25rem)}.approval-command-heading p{color:var(--text-muted);font-size:clamp(.66rem,.82vw,.76rem)}.approval-eyebrow{color:#38bdf8;font-size:.58rem;font-weight:850;letter-spacing:1.2px}.approval-live-state{display:inline-flex;align-items:center;gap:7px;flex:0 0 auto;padding:8px 11px;border:1px solid color-mix(in srgb,#10b981 38%,var(--border-color));border-radius:999px;background:rgba(16,185,129,.08);color:#10b981;font-size:.63rem;font-weight:800}.approval-live-state i{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px rgba(16,185,129,.12)}
+.approval-insights{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}
+/* Filtros de la cola de decision. Van entre los indicadores y los botones
+   porque acotan sobre que pallets actuan esos botones: primero se elige el
+   subconjunto y despues se decide sobre el, nunca al reves. */
+.approval-filter-bar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;align-items:end;gap:10px;padding:11px 12px;border:1px solid var(--border-color);border-radius:12px;background:color-mix(in srgb,var(--card-bg) 72%,transparent)}
+.approval-filter-bar label{display:flex;min-width:0;flex-direction:column;gap:6px;color:var(--text-muted);font-size:.65rem;font-weight:700}
+.approval-filter-bar select.form-control{width:100%;height:38px;min-height:38px;padding:7px 30px 7px 10px;font-size:.66rem}
+/* El motivo por el que la decision no alcanza a toda la cola se dice en el
+   modal, que es el ultimo punto donde el operador puede arrepentirse. */
+.approval-confirm-filter{display:flex;flex-direction:column;gap:4px;margin-top:12px;padding:11px 12px;border:1px solid rgba(56,189,248,.42);border-radius:10px;background:rgba(56,189,248,.09)}
+.approval-confirm-filter b{color:#38bdf8;font-size:.68rem}
+.approval-confirm-filter span{color:var(--text-muted);font-size:.66rem;line-height:1.45}.approval-insight{display:flex;align-items:center;gap:10px;min-width:0;padding:11px;border:1px solid var(--border-color);border-radius:11px;background:color-mix(in srgb,var(--card-solid) 76%,transparent)}.approval-insight>span{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border-radius:9px;background:rgba(56,189,248,.11);color:#38bdf8;font-size:.8rem;font-weight:900}.approval-insight>div{display:grid;min-width:0}.approval-insight small,.approval-insight em{overflow:hidden;color:var(--text-dim);font-size:.55rem;font-style:normal;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}.approval-insight strong{color:var(--text-main);font-size:clamp(.9rem,1.2vw,1.12rem);line-height:1.25}.approval-insight.pending>span{color:#f59e0b;background:rgba(245,158,11,.11)}.approval-insight.weight>span{color:#10b981;background:rgba(16,185,129,.11)}.approval-insight.boxes>span{color:#a78bfa;background:rgba(167,139,250,.11)}.approval-insight.articles>span{color:#22d3ee;background:rgba(34,211,238,.11)}.approval-insight.alerts>span{color:#fb7185;background:rgba(251,113,133,.11)}
+.approval-actions{display:grid;grid-template-columns:minmax(230px,.72fr) minmax(0,2fr);gap:10px;padding:0;border:0;background:transparent}.approval-decision-group{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.approval-action-card{display:flex;align-items:center;gap:9px;min-width:0;min-height:54px;padding:9px 11px;border:1px solid var(--border-color);border-radius:11px;background:color-mix(in srgb,var(--card-solid) 82%,transparent);color:var(--text-main);text-align:left;cursor:pointer;transition:border-color .16s ease,background .16s ease,transform .16s ease}.approval-action-card:hover{transform:translateY(-1px);background:var(--card-solid)}.approval-action-card:focus-visible{outline:2px solid #38bdf8;outline-offset:2px}.approval-action-card:disabled{opacity:.46;cursor:not-allowed;transform:none}.approval-action-card>span:nth-child(2){display:grid;min-width:0}.approval-action-card b{font-size:.66rem;line-height:1.2}.approval-action-card small{margin-top:3px;overflow:hidden;color:var(--text-dim);font-size:.54rem;line-height:1.2;text-overflow:ellipsis;white-space:nowrap}.approval-action-icon{display:grid;place-items:center;flex:0 0 32px;width:32px;height:32px;border-radius:9px;background:rgba(56,189,248,.1);color:#38bdf8;font-size:.82rem;font-weight:900}.approval-action-arrow{margin-left:auto;color:#38bdf8}.approval-action-card.packing{border-color:rgba(56,189,248,.28)}.approval-action-card.approve{border-color:rgba(16,185,129,.38)}.approval-action-card.approve .approval-action-icon{color:#10b981;background:rgba(16,185,129,.12)}.approval-action-card.reprocess{border-color:rgba(245,158,11,.38)}.approval-action-card.reprocess .approval-action-icon{color:#f59e0b;background:rgba(245,158,11,.12)}.approval-action-card.reject{border-color:rgba(239,68,68,.38)}.approval-action-card.reject .approval-action-icon{color:#ef4444;background:rgba(239,68,68,.12)}
+.approval-context{display:flex;align-items:flex-start;gap:10px}.approval-context>span{color:#38bdf8;font-size:.9rem}.approval-context b{color:var(--text-main);font-size:.67rem}.approval-context p{margin-top:2px;color:var(--text-muted);font-size:.64rem;font-weight:600}
+.approval-confirm{width:min(620px,100%);padding:0;overflow:hidden}.approval-confirm header{padding:16px 18px;border-bottom:1px solid var(--border-color);background:rgba(56,189,248,.06)}.approval-confirm-title{display:flex;align-items:center;gap:11px}.approval-confirm-title>span{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:rgba(56,189,248,.12);color:#38bdf8;font-size:1.05rem;font-weight:900}.approval-confirm-title small{color:#38bdf8;font-size:.56rem;font-weight:850;letter-spacing:1px}.approval-confirm-title h3{margin-top:2px;font-size:1rem}.approval-confirm-copy{margin:0!important;padding:17px 18px 11px}.approval-confirm-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 18px}.approval-confirm-metrics span{display:grid;padding:10px;border:1px solid var(--border-color);border-radius:9px;background:var(--card-bg)}.approval-confirm-metrics small{color:var(--text-dim);font-size:.57rem}.approval-confirm-metrics b{margin-top:2px;font-size:.9rem}.approval-confirm-impact{margin:12px 18px;padding:11px;border-left:3px solid #38bdf8;border-radius:7px;background:rgba(56,189,248,.07);color:var(--text-muted);font-size:.68rem;line-height:1.45}.approval-confirm footer{gap:8px;padding:0 18px 18px}.approval-confirm .ops-action.approve{background:#10b981;color:#fff}.approval-confirm .ops-action.reprocess{background:#f59e0b;color:#111827}.approval-confirm .ops-action.reject{background:#ef4444;color:#fff}
+@media(max-width:1100px){.approval-insights{grid-template-columns:repeat(3,minmax(0,1fr))}.approval-actions{grid-template-columns:1fr}.approval-action-card.packing{max-width:none}.approval-decision-group{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.approval-command-heading{align-items:stretch;flex-direction:column}.approval-live-state{align-self:flex-start}.approval-insights{grid-template-columns:repeat(2,minmax(0,1fr))}.approval-insight:last-child{grid-column:1/-1}.approval-decision-group{grid-template-columns:1fr}.approval-action-card{min-height:58px}.approval-confirm-metrics{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:420px){.approval-command-center{padding:12px}.approval-insight{padding:9px 8px}.approval-insight>span{flex-basis:29px;width:29px;height:29px}.approval-action-card{min-height:60px;padding:10px}.approval-confirm-backdrop{padding:10px}.approval-confirm header{padding:14px}.approval-confirm-copy{padding:14px 14px 10px}.approval-confirm-metrics{padding:0 14px}.approval-confirm-impact{margin:11px 14px}.approval-confirm footer{display:grid;grid-template-columns:1fr;padding:0 14px 14px}.approval-confirm footer .ops-action{width:100%}}
+
+/* Panel "Buscar o pegar lotes" de Despacho.
+   Reutiliza el componente del mapa (.map-overlay y .search-input-shell); aca
+   solo se lo saca de posicion absoluta para que quede en flujo, justo debajo
+   del boton, como en Camara Proter y Camara Post Tunel. */
+/* Doble clase: mapa-2d5.css carga DESPUES que este archivo, asi que
+   .map-overlay a secas ganaria por orden. El panel vive en document.body
+   y se ancla al boton por JS, de ahi position:fixed. */
+.map-overlay.lot-panel{position:fixed;z-index:400;display:flex;flex-direction:column;overflow:hidden;inset:auto}
+.lot-panel>p,.lot-panel>header{flex:0 0 auto}
+.lot-panel .lot-formatos{margin-top:5px}
+.lot-panel .lot-formatos code{padding:1px 5px;border-radius:5px;background:color-mix(in srgb,var(--border-color) 55%,transparent);color:var(--text-main);font-size:.66rem}
+.lot-panel .search-input-shell{min-height:0;flex:1 1 auto}
+/* En pantalla baja el parrafo largo se va: lo que el operador necesita
+   tener a la vista son los formatos validos y el campo. */
+@media(max-height:820px),(max-width:640px){.lot-panel>p:first-of-type{display:none}}
+/* Doble clase obligatoria: mapa-2d5.css trae `.map-overlay textarea{font:inherit}`
+   y carga despues, asi que con una sola clase el textarea heredaba el tamano
+   de la raiz —16,75 px en PC, el texto mas grande de toda la aplicacion—.
+   Se usa .86rem, el mismo valor que el buscador de lotes del mapa, para que
+   los dos buscadores se lean igual. Monoespaciada porque lo que se pega son
+   codigos y asi las columnas de digitos quedan alineadas. */
+.map-overlay.lot-panel textarea{font-family:ui-monospace,SFMono-Regular,"Cascadia Mono",Menlo,Consolas,monospace;font-size:.86rem;line-height:1.55;letter-spacing:.2px;/* Sin manija de redimension: el panel tiene su propio alto y estirar el
+     campo por dentro no cambia nada, igual que en el buscador del mapa. */
+  resize:none;
+/* Sin marco propio. `.map-overlay textarea` de mapa-2d5.css le pone borde,
+     radio y fondo, y como el contenedor .search-input-shell ya trae SU marco,
+     quedaban dos recuadros, uno dentro del otro: ese era el borde blanco.
+     El buscador del mapa hace exactamente esto mismo. */
+  width:100%;padding:12px;border:0;border-radius:0;background:transparent;box-shadow:none;outline:none}
+.map-overlay.lot-panel textarea:focus,.map-overlay.lot-panel textarea:focus-visible{border:0;background:transparent;box-shadow:none;outline:none}
+/* La raiz cambia de tamano por tramo (16 / 17,5 / 16,75 px), asi que un rem
+   fijo daria una letra distinta en cada dispositivo. Estos tres valores la
+   dejan en ~14,4 px reales en telefono, tablet y PC: el mismo cuerpo que el
+   buscador de lotes del mapa. */
+@media(max-width:640px){.map-overlay.lot-panel textarea{font-size:.9rem}}
+@media(min-width:641px) and (max-width:1024px){.map-overlay.lot-panel textarea{font-size:.82rem}}
+.lot-panel-acciones{display:flex;flex:0 0 auto;justify-content:flex-end;gap:8px;margin-top:11px}
+.lot-resumen-vacio{color:var(--text-dim)}
+.lot-resumen-cuenta b{color:var(--text-main)}
+.lot-resumen-cuenta em{color:#f59e0b;font-style:normal;font-weight:800}
+.lot-resumen-faltantes{display:block;margin-top:6px;padding-top:6px;border-top:1px solid var(--border-color)}
+.lot-resumen-faltantes i{display:block;margin-bottom:3px;color:#f59e0b;font-style:normal;font-weight:800}
+.lot-resumen-faltantes code{display:block;max-height:56px;overflow:auto;color:var(--text-muted);overflow-wrap:anywhere;user-select:all}
+/* El disparador deja de ser un rotulo fijo y pasa a mostrar el estado. */
+.lot-search-trigger.cargado{border-color:rgba(56,189,248,.4);background:rgba(56,189,248,.08);color:var(--text-main)}
+.lot-search-trigger.cargado b{color:#38bdf8}
+.lot-search-trigger.con-faltantes{border-color:rgba(245,158,11,.45);background:rgba(245,158,11,.08)}
+.lot-search-trigger.con-faltantes b{color:#f59e0b}
+@media(max-width:600px){.lot-panel-acciones{flex-direction:column-reverse}.lot-panel-acciones .ops-action{width:100%}}
+
+/* Movimiento de Camara: unica barra de filtros del sistema.
+   Misma estructura de 320 a 900 px: el buscador ocupa una fila, los dos
+   selectores van lado a lado en la siguiente y "Limpiar filtros" queda
+   inmediatamente debajo. Desde 901 px el buscador y los dos selectores
+   comparten fila, y desde 1280 px entra tambien el boton. */
+.ops-filter-bar{grid-template-columns:minmax(220px,1fr) max-content max-content max-content}.ops-select-field{width:max-content;max-width:100%}.ops-select-field select.form-control{width:auto;min-width:clamp(168px,15vw,210px);max-width:220px}.ops-filter-bar .ops-clear-button,.approval-filter-bar .ops-clear-button{display:grid;grid-template-columns:auto auto;align-content:center;align-items:center;gap:0 6px;min-width:118px;min-height:40px;padding:6px 10px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--text-dim);text-align:left}.ops-clear-button>span{grid-row:1/3;font-size:.82rem}.ops-clear-button>b{font-size:.62rem;line-height:1.15}.ops-clear-button>small{overflow:hidden;max-width:150px;font-size:.52rem;font-weight:650;line-height:1.15;text-overflow:ellipsis;white-space:nowrap}
+/* En telefono y tablet el boton comparte fila con el buscador y no hay lugar
+   para "2 activos": se deja solo el numero, que junto al boton resaltado ya
+   dice lo necesario. La palabra vuelve desde 901 px. */
+.ops-clear-button>small em,.ops-clear-button>b em{font-style:normal}
+@media(max-width:900px){.ops-clear-button>small em{display:none}.ops-clear-button>small{max-width:none;padding-left:1px}/* "Limpiar" a secas: con la palabra completa el boton se lleva 138 px y el
+   rotulo del buscador se partia en dos lineas al activarse un filtro, con lo
+   que la barra cambiaba de alto sola. */
+.ops-clear-button>b em{display:none}}.ops-filter-bar .ops-clear-button.has-active,.approval-filter-bar .ops-clear-button.has-active{border-color:rgba(56,189,248,.28);background:rgba(56,189,248,.07);color:#38bdf8}.ops-clear-button:disabled{opacity:.5;cursor:not-allowed}.ops-filter-bar .ops-clear-button.has-active:hover,.approval-filter-bar .ops-clear-button.has-active:hover{border-color:rgba(56,189,248,.5);background:rgba(56,189,248,.12)}
+/* Telefono y tablet: el buscador comparte fila con "Limpiar filtros" y los
+   dos selectores van juntos en la siguiente. El corte de linea de flex se
+   decide con el tamano BASE, no con el crecido: por eso el buscador lleva
+   base 50% y los selectores calc(50% - 6px). Asi 60+50 pasa del 100% y los selectores
+   siempre bajan, mientras el buscador crece para llenar su fila.
+   El boton esta ultimo en el HTML porque en escritorio cierra la fila; aca
+   se sube con `order`, sin tocar el marcado. */
+@media(max-width:900px){.operations-view .ops-filter-bar{display:flex;flex-wrap:wrap;align-items:end}.ops-filter-bar>label:first-child{order:1;flex:1 1 50%;min-width:0;width:auto}.ops-filter-bar .ops-clear-button{order:2;flex:0 0 auto;width:auto;min-width:104px;max-width:44%}.ops-select-field{order:3;flex:1 1 calc(50% - 6px);min-width:0;width:auto}.ops-select-field select.form-control{width:100%;min-width:0;max-width:none}}
+/* Por debajo de 375 px el buscador y el boton ya no caben juntos sin que
+   el rotulo se parta en dos lineas. Ahi el boton vuelve a su propia fila,
+   que es la unica forma de que siga entrando entero. De 375 px hacia
+   arriba comparten fila, que es lo que se pidio para iPhone SE y 16 Pro Max. */
+@media(max-width:374px){.ops-filter-bar>label:first-child{flex:0 0 100%;width:100%}.ops-filter-bar .ops-clear-button{order:4;flex:0 0 100%;width:100%;max-width:none}}
+@media(max-width:600px){.ops-filter-bar{gap:10px}.ops-filter-bar .ops-clear-button{min-height:44px;grid-auto-flow:column;grid-template-columns:none;justify-content:center;gap:0 8px}.ops-clear-button>span{grid-row:auto}.ops-clear-button>small{max-width:none;text-align:left}}
+
+/* ============================================================
+   Movimientos de Camara: lista en tarjetas en TODOS los anchos.
+   Sustituye el scroll horizontal de la tabla de 12 columnas
+   (~1476px, que no cabe ni en PC con la barra lateral plegada).
+   La grilla usa auto-fill, de modo que al plegar la barra lateral
+   el area gana ancho y aparecen mas columnas sin intervencion de JS.
+   Metricas y notas operacionales siempre visibles; detector,
+   reserva y auditoria se despliegan al tocar la tarjeta.
+   El interior de la tarjeta responde con @container (ancho de la
+   propia tarjeta), no con @media, porque una misma resolucion puede
+   mostrar tarjetas anchas (1 columna) o angostas (4 columnas).
+   grid-auto-rows:max-content es obligatorio: la tarjeta lleva
+   overflow:hidden, por lo que su aporte de tamano minimo es 0 y con
+   filas 'auto' dentro de un contenedor de alto acotado las filas
+   colapsaban a 2px y las tarjetas se superponian.
+
+   ALTO DE LA LISTA (Movimientos, Despacho, Aprobaciones y Stock)
+   El tope se expresa en FILAS de tarjeta, no en dvh: la lista crece
+   hasta --ops-rows filas y desde ahi scrollea internamente, mientras
+   la vista completa supera el alto de ventana y deja scrollear la
+   pagina en .main-viewport. Son los dos scrolls a la vez, en los
+   cuatro formatos.
+   --ops-card-h es el alto REAL de una tarjeta colapsada medido en ese
+   rango de ancho; cambia con el numero de columnas porque la tarjeta
+   se reordena sola por @container. Si se toca el contenido de la
+   tarjeta (una nota mas, una metrica mas) hay que volver a medirlo,
+   si no la cuenta de filas visibles se corre.
+   Filas por formato: 8 en PC ancho, 7 en PC/notebook, 6 en tablet,
+   5 en telefono.
+   ============================================================ */
+.ops-card-list{
+  --ops-rows:8;
+  --ops-card-h:200px;
+  --ops-card-gap:11px;
+  --ops-list-pad:12px;
+  --ops-track:440px;
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(min(100%,var(--ops-track)),1fr));
+  grid-auto-rows:max-content;align-content:start;align-items:start;
+  gap:var(--ops-card-gap);padding:var(--ops-list-pad);
+  min-height:0;flex:1 1 auto;
+  max-height:calc(var(--ops-rows) * var(--ops-card-h) + (var(--ops-rows) - 1) * var(--ops-card-gap) + var(--ops-list-pad) * 2);
+  overflow-y:auto;
+}
+/* Alto de tarjeta colapsada medido por rango: cambia con el numero de
+   columnas porque la propia tarjeta se reordena por @container. */
+@media(max-width:1280px){.ops-card-list{--ops-rows:7;--ops-card-h:222px}}
+@media(max-width:900px){.ops-card-list{--ops-rows:6;--ops-card-h:244px;--ops-track:340px}}
+@media(max-width:600px){.ops-card-list{--ops-rows:5;--ops-card-h:250px;--ops-track:100%}}
+@media(max-width:374px){.ops-card-list{--ops-card-h:272px}}
+@media(max-width:700px){.approval-filter-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.approval-filter-bar .ops-clear-button{grid-column:1/-1;width:100%;min-height:44px;justify-content:center}}
+@media(max-width:600px){.approval-filter-bar{padding:10px}.approval-filter-bar select.form-control{height:44px;min-height:44px;font-size:.72rem}}
+@media(max-width:420px){.approval-filter-bar{grid-template-columns:minmax(0,1fr)}}
+/* Gestion de Aprobaciones monta un campo de motivo dentro de cada tarjeta
+   (.ops-card-reason, +66px), asi que su alto de fila es propio. Sin esto la
+   lista mostraba 4 filas donde las otras dos vistas mostraban 6 o 7. */
+.approval-table-shell .ops-card-list{--ops-card-h:264px}
+@media(max-width:1280px){.approval-table-shell .ops-card-list{--ops-card-h:288px}}
+@media(max-width:900px){.approval-table-shell .ops-card-list{--ops-card-h:310px}}
+@media(max-width:600px){.approval-table-shell .ops-card-list{--ops-card-h:298px}}
+@media(max-width:374px){.approval-table-shell .ops-card-list{--ops-card-h:338px}}
+.ops-card{
+  container-type:inline-size;
+  min-width:0;position:relative;cursor:pointer;
+  border:1px solid var(--border-color);border-radius:16px;
+  background:linear-gradient(180deg,color-mix(in srgb,#38bdf8 4%,transparent) 0%,transparent 62px),var(--card-bg);
+  box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 10px 24px -18px rgba(0,0,0,.9);
+  overflow:hidden;
+  transition:border-color .18s ease,box-shadow .18s ease;
+}
+.ops-card:hover{border-color:color-mix(in srgb,#38bdf8 38%,var(--border-color));box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 14px 30px -18px rgba(0,0,0,.95)}
+.ops-card:has(input:checked){border-color:#38bdf8;box-shadow:0 0 0 1px rgba(56,189,248,.35),0 14px 30px -18px rgba(0,0,0,.95)}
+
+.ops-card-head{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:10px;padding:13px 13px 11px}
+.ops-card-head:not(:has(.ops-card-check)){grid-template-columns:minmax(0,1fr) auto auto}
+.ops-card-check{display:grid;place-items:center;cursor:pointer}
+.ops-card-check input{width:17px;height:17px;accent-color:#38bdf8;cursor:pointer}
+.ops-card-id{min-width:0}
+.ops-card-id b{display:block;font-family:Consolas,ui-monospace,monospace;font-size:.86rem;font-weight:800;color:#38bdf8;letter-spacing:.3px}
+.ops-card-id small{display:block;margin-top:3px;color:var(--text-muted);font-size:.68rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ops-card-flag .ops-badge{white-space:nowrap}
+.ops-card-toggle{
+  display:grid;place-items:center;width:27px;height:27px;flex:0 0 27px;
+  border:1px solid var(--border-color);border-radius:9px;background:transparent;
+  color:var(--text-muted);cursor:pointer;
+  transition:color .18s ease,border-color .18s ease,background .18s ease;
+}
+.ops-card:hover .ops-card-toggle{color:#38bdf8;border-color:rgba(56,189,248,.4)}
+.ops-card-toggle>i{
+  display:block;width:15px;height:15px;background-color:currentColor;transition:transform .24s ease;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%23000%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%209.4L12%2015l5.6-5.6%27%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20viewBox%3D%270%200%2024%2024%27%20fill%3D%27none%27%20stroke%3D%27%23000%27%20stroke-width%3D%272%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%3E%3Cpath%20d%3D%27M6.4%209.4L12%2015l5.6-5.6%27%2F%3E%3C%2Fsvg%3E") center/contain no-repeat;
+}
+.ops-card.open .ops-card-toggle{color:#38bdf8;border-color:rgba(56,189,248,.45);background:rgba(56,189,248,.08)}
+.ops-card.open .ops-card-toggle>i{transform:rotate(180deg)}
+
+.ops-card-metrics{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+  margin:0 13px;padding:9px 0;
+  border-top:1px solid var(--border-color);border-bottom:1px solid var(--border-color);
+}
+.ops-card-metrics>div{min-width:0;padding:0 9px;border-left:1px solid var(--border-color)}
+.ops-card-metrics>div:first-child{border-left:0;padding-left:1px}
+.ops-card-metrics small{display:block;color:var(--text-dim);font-size:.53rem;font-weight:800;letter-spacing:.5px}
+.ops-card-metrics>div>span{display:block;margin-top:3px;font-size:.76rem;font-weight:750;color:var(--text-main);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ops-card-metrics .ops-badge{font-size:.5rem;padding:3px 5px}
+
+.ops-card-notes{display:grid;gap:9px;padding:11px 13px 13px}
+.ops-card-notes>div{min-width:0}
+.ops-card-notes small{display:block;color:#38bdf8;font-size:.53rem;font-weight:850;letter-spacing:.7px}
+.ops-card-notes>div>span{display:block;margin-top:3px}
+.ops-card-notes .cell-text{-webkit-line-clamp:2;max-width:none;width:100%;padding:0;font-size:.72rem;line-height:1.4;color:var(--text-muted);text-align:left;cursor:pointer}
+.ops-card-notes .cell-text:hover{color:var(--text-main)}
+
+.ops-card-detail{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s var(--transition-bezier)}
+.ops-card.open .ops-card-detail{grid-template-rows:1fr}
+.ops-card-more{overflow:hidden}
+.ops-card-kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+.ops-card-kv>div{padding:10px 13px;border-top:1px solid var(--border-color);min-width:0}
+.ops-card-kv>div:nth-child(odd){border-right:1px solid var(--border-color)}
+.ops-card-kv small{display:block;color:var(--text-dim);font-size:.53rem;font-weight:800;letter-spacing:.5px}
+.ops-card-kv>div>span{display:block;margin-top:4px;font-size:.73rem;color:var(--text-main)}
+
+.ops-card-audit{padding:12px 13px 14px;border-top:1px solid var(--border-color);background:rgba(56,189,248,.045)}
+.ops-audit-title{display:block;color:#38bdf8;font-size:.53rem;font-weight:850;letter-spacing:.9px;margin-bottom:9px}
+.ops-card-audit dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 12px;margin:0}
+.ops-card-audit dl>div{min-width:0}
+.ops-card-audit dl>div.wide{grid-column:1/-1}
+.ops-card-audit dt{color:var(--text-dim);font-size:.53rem;font-weight:800;letter-spacing:.5px}
+.ops-card-audit dd{margin:3px 0 0;font-size:.73rem;color:var(--text-main);overflow-wrap:anywhere}
+.ops-card-audit.empty p{margin:0;color:var(--text-dim);font-size:.71rem;font-style:italic}
+
+/* Tarjeta angosta (telefono): las cuatro metricas van en UNA sola fila,
+   pero repartidas por contenido y no en cuartos iguales. KILOS y CAJAS son
+   numeros acotados (no pasan de cuatro cifras) y FEC. FABRIC. tiene largo
+   fijo, asi que se ajustan a lo que miden; ESTADO se queda con todo el
+   ancho sobrante para que los estados mas largos (SIN INFORMACION,
+   PROHIBICIONES, VERIFICACION) quepan completos sin recortarse. */
+@container (max-width:430px){
+  .ops-card-metrics{grid-template-columns:auto auto auto minmax(0,1fr)}
+  .ops-card-metrics>div{padding:0 7px}
+  .ops-card-metrics>div:last-child{padding-right:0}
+  .ops-card-metrics small{white-space:nowrap}
+  /* ESTADO recibe el sobrante, pero solo lo que necesita: si el estado es
+     mas largo que su columna la insignia se parte en dos lineas en vez de
+     robarle ancho a KILOS, CAJAS y FEC. FABRIC. */
+  .ops-card-metrics>div:last-child .ops-badge{white-space:normal;line-height:1.25}
+}
+/* A partir de ~390px de tarjeta ya hay margen para soltar las tres primeras
+   columnas: se les da mas aire lateral, que sale del sobrante de ESTADO.
+   El limite lo fija la palabra suelta mas larga ('PROHIBICIONES', 93px):
+   ESTADO nunca baja de eso, asi que ninguna palabra se parte por la mitad. */
+@container (min-width:336px) and (max-width:430px){
+  .ops-card-metrics>div{padding:0 12px}
+  .ops-card-metrics>div:first-child{padding-left:2px}
+  .ops-card-metrics>div:last-child{padding-right:0}
+}
+/* Tarjeta muy angosta (telefonos de 360px o menos): ni con todo el ancho
+   sobrante caben los estados mas largos ('AUTORIZADOS A ENVIAR', 'LOTES
+   INCOMPLETOS'), asi que la insignia se deja envolver en dos lineas. Se
+   prefiere eso a recortar el texto: el estado siempre se lee completo.
+   La auditoria pasa ademas a una sola columna. */
+@container (max-width:382px){
+  .ops-card-metrics{column-gap:2px;margin:0 10px}
+  .ops-card-metrics>div:last-child>span{white-space:normal}
+  .ops-card-audit dl{grid-template-columns:minmax(0,1fr)}
+}
+/* Telefonos muy pequenos (320px): ya no queda ancho util para ESTADO en la
+   misma fila, asi que baja a una segunda linea a ancho completo. Es la unica
+   forma de que un estado como 'AUTORIZADOS A ENVIAR' se lea entero sin
+   partir la palabra. */
+@container (max-width:300px){
+  .ops-card-metrics{grid-template-columns:auto auto minmax(0,1fr);row-gap:8px}
+  .ops-card-metrics>div:last-child{grid-column:1/-1;border-left:0;padding-left:1px}
+}
+/* Tarjeta ancha (tablet en 1 columna, o PC en 2 columnas):
+   las notas se ponen lado a lado y la auditoria en 4 columnas. */
+@container (min-width:520px){
+  .ops-card-notes{grid-template-columns:repeat(2,minmax(0,1fr));gap:0}
+  .ops-card-notes>div:first-child{padding-right:13px;border-right:1px solid var(--border-color)}
+  .ops-card-notes>div:last-child{padding-left:13px}
+  .ops-card-audit dl{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .ops-card-audit dl>div.wide{grid-column:auto}
+}
+
+/* ============================================================
+   Gestion de Aprobaciones: bajo INFO CALIDAD / INFO GENERAL va el
+   MOTIVO que escribe el operador. Ocupa siempre la fila completa
+   (es un campo de accion, no una nota mas) y a cualquier ancho.
+   .reason-input traia ancho fijo de 270px, que desborda una
+   tarjeta angosta; dentro de la tarjeta pasa a ancho fluido.
+   ============================================================ */
+.ops-card-reason{padding:0 13px 13px}
+.ops-card-reason>small{display:block;color:#38bdf8;font-size:.53rem;font-weight:850;letter-spacing:.7px}
+.ops-card-reason .reason-input{width:100%;min-width:0;margin-top:4px;font-size:.7rem}
+.ops-card-notes:has(+.ops-card-reason){padding-bottom:9px}
+
+/* ============================================================
+   Detalle de Stock en Planta anade un tercer dato al desplegable
+   (ALMACEN) sobre los dos habituales. .ops-card-kv es de dos
+   columnas, asi que cuando el total es impar el ultimo bloque
+   toma la fila completa en vez de dejar media fila vacia.
+   ============================================================ */
+.ops-card-kv>div:last-child:nth-child(odd){grid-column:1/-1;border-right:0}
+
+/* ============================================================
+   Visualizar Stock suma un boton de 'copiar fila' en la cabecera
+   de la tarjeta (era una columna extra de la tabla). Con el la
+   cabecera pasa a cuatro columnas. Se estila igual que el
+   chevron para que el par se lea como un solo grupo.
+   ============================================================ */
+.ops-card-head:has(.ops-card-copy){grid-template-columns:minmax(0,1fr) auto auto auto;gap:7px}
+.ops-card-head:has(.ops-card-check):has(.ops-card-copy){grid-template-columns:auto minmax(0,1fr) auto auto auto}
+.ops-card-copy{
+  display:grid;place-items:center;width:27px;height:27px;flex:0 0 27px;
+  border:1px solid var(--border-color);border-radius:9px;background:transparent;
+  color:var(--text-muted);cursor:pointer;
+  transition:color .18s ease,border-color .18s ease,background .18s ease;
+}
+.ops-card:hover .ops-card-copy{color:#38bdf8;border-color:rgba(56,189,248,.4)}
+.ops-card-copy>i{width:14px;height:14px}
+
+/* ============================================================
+   Pedido atrasado. La regla (2 dias o mas) ya existia en
+   PanelControlModel y solo se pintaba en Bitacora; ahora la
+   misma senal aparece en las cinco vistas de tarjetas, para
+   que un pedido atrasado se note donde el operador ya mira.
+   ============================================================ */
+.ops-card-alert{margin:9px 13px 0}
+.ops-delay{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:5px 10px;border-radius:999px;
+  border:1px solid var(--border-color);background:color-mix(in srgb,var(--card-bg) 65%,transparent);
+  color:var(--text-muted);font-size:.6rem;font-weight:850;letter-spacing:.4px;
+}
+.ops-delay>.wi{width:12px;height:12px;flex:0 0 12px}
+.ops-delay.late{color:#f87171;border-color:rgba(248,113,113,.45);background:rgba(248,113,113,.1)}
+.ops-delay.unknown{color:#fbbf24;border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.09)}
+.ops-card.is-late{border-color:rgba(248,113,113,.42)}
+.ops-card.is-late:hover{border-color:rgba(248,113,113,.7)}
+
+

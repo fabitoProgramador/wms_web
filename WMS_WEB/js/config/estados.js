@@ -1,0 +1,35 @@
+/**
+ * Estados de Pallet y Mapeo de Colores/Abreviaturas para WMS_WEB
+ * Fuente de verdad extraída de config/mapa_estados.py en Programa MVC
+ */
+const COLORES_MAPA_ESTADO = {
+  "LIBERADO": "#10B981",
+  "RECHAZO": "#EF4444",
+  "VERIFICACIÓN": "#F59E0B",
+  "REPROCESO": "#9333EA",
+  "SIN DM": "#64748B",
+  "PEDIDO": "#EC4899",
+  "SIN INFORMACIÓN": "#64748B",
+  "BLOQUEADOS": "#B91C1C",
+  "LOTES INCOMPLETOS": "#F97316",
+  "AUTORIZADOS A ENVIAR": "#06B6D4",
+  "PROHIBICIONES": "#9333EA"
+};
+
+const ABREVIATURAS_ESTADO_MAPA = {
+  "LIBERADO": "LIB",
+  "SIN DM": "SDM",
+  "VERIFICACIÓN": "VER",
+  "SIN INFORMACIÓN": "S/I",
+  "BLOQUEADOS": "BLQ",
+  "LOTES INCOMPLETOS": "INC",
+  "RECHAZO": "RCH",
+  "REPROCESO": "RPR",
+  "PEDIDO": "PED",
+  "AUTORIZADOS A ENVIAR": "AUT",
+  "PROHIBICIONES": "PRH"
+};
+
+const COLOR_MAPA_REPETIDO = "#FFFFFF";
+const COLOR_MAPA_NUEVO_PENDIENTE = "#0EA5E9";
+const COLOR_MAPA_NO_EXISTE = "#60A5FA";
