@@ -2,9 +2,9 @@
 
 Estado de la migración frontend de **Movimientos de Cámara, Despacho y Gestión de Aprobaciones**.
 
-## Regla de esta fase
+## Regla de arquitectura
 
-El backend existente es autoritativo y **no se modifica para acomodarlo al frontend**.
+El backend es autoritativo. El frontend no inventa estados, requisitos, decisiones gerenciales ni datos de negocio.
 
 Las tres vistas migradas entran por:
 
@@ -36,6 +36,40 @@ Bitácora y Registro de Verificaciones cierran el submenú cuando son visibles.
 
 ---
 
+## Capas de estado de una tarjeta
+
+Una tarjeta no debe resumir todo en un solo badge porque el backend permite capas que pueden coexistir.
+
+La UI remota distingue explícitamente:
+
+1. **Calidad SAP**: valor del padre SAP, por ejemplo `BLOQUEADO` o `LIBERADO`.
+2. **Estado WMS registrado**: estado explícito almacenado por WMS (`LIBERADO`, `BLOQUEADO`, `RECHAZADO`) cuando existe.
+3. **Estado operativo efectivo**: resultado autoritativo calculado por backend considerando SAP, WMS, bloqueos y requisitos.
+4. **Flujo / filtro**: la categoría operacional por la que el pallet aparece en una consulta de los 11 estados.
+5. **Condiciones / subestados**: `VERIFICACIÓN`, `SIN DM`, `SIN INFORMACIÓN`, `LOTE INCOMPLETO`, `PROHIBICIÓN`, `PEDIDO`, etc.
+6. **Decisión de Gerencia** y **modalidad** cuando existen.
+
+Ejemplo válido:
+
+`SAP BLOQUEADO · WMS RECHAZADO · OPERATIVO RECHAZADO · condición VERIFICACIÓN`.
+
+No es una contradicción: RECHAZADO es el estado WMS base y VERIFICACIÓN es una condición pendiente.
+
+### RECHAZO + VERIFICACIÓN / SIN DM
+
+`wms_operaciones_reclasificar` no borra un rechazo cuando se agrega una condición.
+
+Si un pallet está `RECHAZADO` y se reclasifica a `VERIFICACIÓN` o `SIN DM`:
+
+- conserva el estado WMS `RECHAZADO`;
+- agrega/reemplaza la condición principal correspondiente;
+- el filtro `VERIFICACIÓN` o `SIN DM` puede encontrarlo por esa condición;
+- la tarjeta sigue mostrando claramente que el estado base continúa siendo RECHAZADO.
+
+Levantar un rechazo es una operación distinta del backend (`wms_operaciones_levantar_rechazo`) y no se ejecuta implícitamente desde el frontend.
+
+---
+
 ## Movimientos de Cámara
 
 Lectura:
@@ -44,10 +78,10 @@ Lectura:
 
 Es el backend quien entrega:
 
-- estados filtrables;
+- los 11 estados filtrables;
 - detectores canónicos;
 - estado SAP;
-- estado/estado operativo WMS;
+- estado WMS registrado y estado operativo;
 - condiciones WMS;
 - decisión y modalidad de Gerencia;
 - Pedido y días en Pedido;
@@ -108,14 +142,37 @@ Lectura:
 
 - `wms_operaciones_aprobaciones_listar`
 
-La cola no se reconstruye en JavaScript. Supabase define qué pallets están pendientes y devuelve filtros, resumen, motivo común y opciones permitidas.
+La cola no se reconstruye en JavaScript. Supabase define qué pallets están pendientes.
+
+Un pallet entra en la cola cuando su estado operativo está `BLOQUEADO` o `RECHAZADO` y todavía no tiene una decisión gerencial actual.
+
+Por eso, reclasificar a RECHAZO hace que un pallet quede disponible en Aprobaciones si no tenía decisión gerencial. Si ya estaba BLOQUEADO y ya pertenecía a la cola, cambiarlo a RECHAZO no necesariamente aumenta el total de pendientes: cambia su clasificación de cola y aparecerá bajo el filtro `RECHAZO`.
+
+### Filtros
+
+Los filtros son remotos, no filtros JavaScript sobre una página descargada:
+
+- **Estado**: `TODOS`, `BLOQUEADOS` y `RECHAZO` según lo que realmente exista en la cola.
+- **N° Artículo**: códigos SAP `ItemCode` realmente presentes en la cola.
+
+Al cambiar cualquiera de los selects, el backend recalcula para ese subconjunto:
+
+- Pallets pendientes.
+- Kilos comprometidos.
+- Cajas asociadas.
+- Artículos distintos.
+- Observados.
+
+El filtro Estado de Aprobaciones representa **estado de cola gerencial**, no condiciones como VERIFICACIÓN o SIN DM. Esas condiciones se ven en las tarjetas.
+
+### Acciones
 
 La UI consume `opciones.acciones` del backend. Actualmente:
 
 - APROBAR
 - REPROCESO
 
-Se eliminó de la nueva UI **Rechazar definitivo**.
+Se eliminó **Rechazar definitivo**.
 
 ### Motivo
 
@@ -141,8 +198,6 @@ El backend registra `AUTORIZADO_ENVIAR + modalidad` y determina después si:
 
 La respuesta muestra `liberados_inmediatos` y `bloqueados_por_condiciones`.
 
-Por eso una tarjeta puede mostrar simultáneamente decisión gerencial, modalidad y condiciones como VERIFICACIÓN, SIN DM, SIN INFORMACIÓN, LOTE INCOMPLETO, PROHIBICIÓN o PEDIDO.
-
 ### Reproceso
 
 La misma RPC recibe `REPROCESO`. El backend crea la decisión gerencial y mantiene su auditoría.
@@ -157,28 +212,30 @@ El backend arma la selección autoritativa; el navegador sólo transforma la res
 
 ## Idempotencia y concurrencia
 
-Las escrituras nuevas generan `operacion_uuid` en frontend y lo entregan a los RPC.
+Las escrituras generan `operacion_uuid` en frontend y lo entregan a los RPC.
 
 El motivo de aprobación respeta `motivo_version` y la decisión gerencial vuelve a consultar toda la cola filtrada antes de ejecutar, para no decidir sobre una pantalla desactualizada.
 
 ---
 
-## Bloqueo backend detectado — NO MODIFICADO
+## Permisos RPC privados — RESUELTO
 
-Durante la auditoría de permisos se confirmó que estos wrappers públicos están habilitados para `authenticated` y son `SECURITY INVOKER`:
+Se aplicó la migración Supabase:
 
-- `wms_operaciones_pedido_aplicar(...)`
-- `wms_operaciones_aprobacion_decidir(..., p_modalidad, ...)`
+- `operaciones_private_rpc_permissions`
 
-Sin embargo sus helpers actuales tienen `EXECUTE` sólo para `postgres`:
+La migración **no modifica reglas de negocio, tablas ni estados**. Sólo alinea permisos de ejecución entre los wrappers públicos `SECURITY INVOKER` y los helpers privados que realmente forman parte de la API web.
 
-- `wms_private.op_operaciones_pedido_aplicar(...)`
-- `wms_private.op_operaciones_aprobacion_decidir(..., p_modalidad, ...)`
+Resultado:
 
-Por ser wrappers `SECURITY INVOKER`, una sesión web autenticada puede recibir `permission denied` al atravesar esas dos rutas de escritura.
+- `authenticated` tiene `EXECUTE` en los helpers privados vigentes usados por los RPC públicos de Operaciones;
+- `anon` no tiene `EXECUTE` en esos helpers;
+- se retiró acceso web al overload legacy de `op_operaciones_aprobacion_decidir` que todavía aceptaba `RECHAZAR`;
+- se retiró acceso web al helper legacy de despacho comercial que permitía destinos que ya no pertenecen a la pantalla Despacho.
 
-**No se cambió ningún GRANT, función, tabla ni regla del backend**, siguiendo la regla de esta fase.
+Con esto quedan resueltos los posibles `permission denied` detectados para:
 
-Las rutas de lectura fueron verificadas con una sesión Auth/WMS vigente. También se comprobó que `wms_operaciones_reclasificar`, `wms_operaciones_aprobacion_motivo` y `wms_operaciones_aprobacion_packing` no presentan esa misma discrepancia de `EXECUTE` en sus helpers actuales.
+- `wms_operaciones_pedido_aplicar(...)`;
+- `wms_operaciones_aprobacion_decidir(..., p_modalidad, ...)`.
 
-Este punto debe validarse en la prueba funcional del navegador y, si se confirma el error, corregirse como incidencia backend separada sin volver a introducir lógica local en el frontend.
+La lógica interna de ambos RPC permanece intacta.
