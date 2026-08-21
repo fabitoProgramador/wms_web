@@ -68,6 +68,8 @@ Si un pallet está `RECHAZADO` y se reclasifica a `VERIFICACIÓN` o `SIN DM`:
 
 Levantar un rechazo es una operación distinta del backend (`wms_operaciones_levantar_rechazo`) y no se ejecuta implícitamente desde el frontend.
 
+Entre `SIN INFORMACIÓN`, `LOTE INCOMPLETO`, `SIN DM` y `VERIFICACIÓN` sólo queda vigente una condición principal a la vez. `PROHIBICIÓN` es adicional y puede coexistir; `PEDIDO` también puede coexistir como flujo comercial.
+
 ---
 
 ## Movimientos de Cámara
@@ -87,6 +89,8 @@ Es el backend quien entrega:
 - Pedido y días en Pedido;
 - almacén SAP;
 - auditoría.
+
+Los 11 filtros no son necesariamente excluyentes. Un mismo pallet puede aparecer, por ejemplo, en `RECHAZO` y también en `VERIFICACIÓN` si conserva rechazo y tiene esa condición pendiente.
 
 Escritura:
 
@@ -197,6 +201,8 @@ El backend registra `AUTORIZADO_ENVIAR + modalidad` y determina después si:
 - permanece BLOQUEADO/PENDIENTE por condiciones WMS.
 
 La respuesta muestra `liberados_inmediatos` y `bloqueados_por_condiciones`.
+
+Al existir ya una decisión gerencial, el pallet deja de pertenecer a la cola de Aprobaciones aunque pueda conservar condiciones pendientes. En Movimientos seguirá siendo visible por `AUTORIZADOS A ENVIAR`, `REPROCESO` o por sus condiciones activas.
 
 ### Reproceso
 
