@@ -59,7 +59,34 @@ Asignar VERIFICACIÓN o SIN DM a un pallet RECHAZADO no levanta automáticamente
 - Operaciones → Despacho.
 - Operaciones → Gestión de Aprobaciones.
 - Stock y Lotes → Stock en Planta → Detalle General.
+- Stock y Lotes → Lote Detallado.
+- Reportes Operacionales → Generar Reporte.
 - Reportes Operacionales → Visualizar Stock.
+
+### Lote Detallado
+
+`wms_lote_detallado` resuelve ID de lote completo o código visual y devuelve una identidad lógica WMS. Conserva por separado:
+
+- las ocurrencias SAP por almacén;
+- el saldo total lógico;
+- las posiciones físicas WMS;
+- Estado WMS registrado y efectivo;
+- flujo y condiciones;
+- decisión/modalidad de Gerencia;
+- última auditoría WMS.
+
+Un mismo `id_lote` con saldo SAP en dos o más almacenes sigue siendo un pallet lógico y no se considera duplicado por ese solo hecho.
+
+### Generar Reporte
+
+Usa exclusivamente:
+
+- `ReportesModel`
+- `ReportesController`
+- `wms_reportes_catalogos`
+- `wms_reportes_compilar`
+
+El navegador no calcula los 11 estados ni filtra una copia local. Supabase devuelve el tipo compilado, totales, snapshot, usuario emisor y vista previa con las mismas capas WMS de las tarjetas operacionales.
 
 ### Visualizar Stock
 
@@ -74,4 +101,4 @@ Usa exclusivamente:
 
 Conserva búsqueda, filtros de almacén/estado, filtros por columna, paginación, copiar fila, copiar todo y Excel, todos ejecutados contra Supabase. El total base es **1.064 registros SAP**, no 1.064 pallets.
 
-`ReportesModel` legacy queda temporalmente sólo por **Generar Reporte**, que se migrará en su propia fase.
+Reportes Operacionales ya no necesita `reportesStockBridge.js`; ese archivo fue eliminado al completar ambos submódulos remotos.
