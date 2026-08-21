@@ -1,14 +1,13 @@
 /**
- * Modelo remoto exclusivo del Panel de Control.
+ * Núcleo remoto del Panel de Control + Resumen Ejecutivo.
  *
  * FUENTE DE VERDAD
  * ------------------------------------------------------------------
  * Este módulo NO mantiene stock, estados, verificaciones, cargas ni eventos
  * locales. Toda la información operacional proviene de RPCs de Supabase.
  *
- * El antiguo PanelControlModel sigue cargado temporalmente porque Bitácora y
- * Registro de Verificaciones aún conservan lógica legacy hasta que llegue su
- * fase de migración. DashboardController no debe volver a consumirlo.
+ * Análisis Operacional y Monitor en Tiempo Real viven en módulos remotos
+ * separados. No se conservan implementaciones duplicadas en este archivo.
  */
 const DashboardModel = {
   ALMACEN_RESUMEN: 'CAM302',
@@ -70,13 +69,7 @@ const DashboardModel = {
     return response.datos;
   },
 
-  /**
-   * Resumen Ejecutivo de PROTER.
-   *
-   * La tendencia de ocupación NO se deriva de fecha de recepción SAP. El
-   * backend conserva snapshots agregados de PROTER al finalizar cada
-   * sincronización del padre y calcula los deltas entre fotografías reales.
-   */
+  /** Resumen Ejecutivo de PROTER. */
   async resumen() {
     const [raw, rawTendencia] = await Promise.all([
       this.rpc('dashboard', 'resumen', { p_almacen_codigo: this.ALMACEN_RESUMEN }),
@@ -163,14 +156,6 @@ const DashboardModel = {
     };
   },
 
-  /**
-   * Detalle remoto/buscable de una tarjeta KPI.
-   *
-   * El RPC limita cada llamada a 200 filas. El frontend no debe confundir ese
-   * límite técnico con el total del KPI, por lo que recorre páginas del mismo
-   * RPC hasta completar `total_resultados`. La búsqueda continúa ejecutándose
-   * íntegramente en PostgreSQL; aquí no se filtra una muestra descargada.
-   */
   async estadoDetalle(estado, { busqueda = '', limite = 200, offset = 0 } = {}) {
     const codigo = this.kpiCodigo(estado);
     const texto = String(busqueda || '').trim() || null;
@@ -189,11 +174,9 @@ const DashboardModel = {
       });
       const lote = Array.isArray(rows) ? rows : [];
       if (!lote.length) break;
-
       if (!total) total = this.numero(lote[0].total_resultados);
       items.push(...lote.map(row => this.filaEstadoDetalle(row)));
       siguiente += lote.length;
-
       if (lote.length < pagina) break;
     } while (siguiente < total);
 
@@ -236,109 +219,6 @@ const DashboardModel = {
     return null;
   },
 
-  /** Análisis Operacional 100% calculado por backend. */
-  async analisis({ camara = 'TODOS', periodo = '30D' } = {}) {
-    const raw = await this.rpc('dashboard', 'analisis', {
-      p_almacen: camara,
-      p_periodo: periodo
-    });
-
-    const resumen = raw?.resumen || {};
-    const actividad = raw?.tendencias?.actividad || {};
-    const ocupacionStock = raw?.ocupacion_stock || {};
-    const totalStock = ocupacionStock?.total || {};
-    const capacidadMapa = raw?.capacidad || {};
-    const totalMapa = capacidadMapa?.total || {};
-    const etapas = raw?.etapas || {};
-    const tendenciaOcupacion = raw?.tendencias?.ocupacion?.camaras || [];
-
-    return {
-      raw,
-      camara: raw?.almacen || camara,
-      periodo: raw?.periodo || periodo,
-      stock: this.numero(resumen.pallets_actuales),
-      cajas: this.numero(resumen.cajas_actuales),
-      kilos: this.numero(resumen.kilos_actuales),
-
-      palletsStock: this.numero(resumen.pallets_stock_camaras ?? totalStock.pallets),
-      capacidadStock: this.numero(resumen.capacidad_stock_camaras ?? totalStock.capacidad),
-      ocupacionStock: this.numero(resumen.ocupacion_stock_porcentaje ?? totalStock.porcentaje),
-      disponiblesStock: this.numero(resumen.disponibles_stock ?? totalStock.disponibles),
-
-      posicionados: this.numero(resumen.posiciones_utilizadas),
-      capacidadMapa: this.numero(resumen.capacidad_fisica ?? totalMapa.capacidad),
-      ocupacionMapa: this.numero(resumen.ocupacion_fisica_porcentaje ?? totalMapa.porcentaje),
-
-      // Alias transitorios para no romper consumidores todavía no auditados.
-      capacidadTotal: this.numero(resumen.capacidad_fisica ?? totalMapa.capacidad),
-      ocupacion: this.numero(resumen.ocupacion_fisica_porcentaje ?? totalMapa.porcentaje),
-
-      tendenciaOcupacion: tendenciaOcupacion.map(serie => ({
-        nombre: serie.camara || '—',
-        puntos: (serie.puntos || []).map(row => ({
-          fecha: String(row.capturado_en || ''),
-          valor: this.numero(row.ocupacion_porcentaje),
-          pallets: this.numero(row.pallets),
-          cajas: this.numero(row.cajas),
-          kilos: this.numero(row.kilos),
-          deltaPallets: row.delta_pallets == null ? null : this.numero(row.delta_pallets),
-          deltaOcupacion: row.delta_ocupacion_pp == null ? null : this.numero(row.delta_ocupacion_pp)
-        }))
-      })),
-
-      // Fecha de recepción SAP queda disponible como contexto histórico, pero
-      // no se usa para representar movimiento/ocupación de cámara.
-      ingresos: (raw?.tendencias?.ingresos || []).map(row => ({
-        fecha: String(row.fecha || ''),
-        valor: this.numero(row.pallets)
-      })),
-      actividad: [
-        { nombre: 'Verificados', valor: this.numero(actividad.verificados) },
-        { nombre: 'Rechazados', valor: this.numero(actividad.rechazados) },
-        { nombre: 'Despachados', valor: this.numero(actividad.despachados) }
-      ],
-      distribucion: (raw?.distribucion?.estado_base || []).map(row => ({
-        nombre: this.kpiNombre(row.estado),
-        pallets: this.numero(row.pallets),
-        cajas: this.numero(row.cajas),
-        porcentaje: this.numero(row.porcentaje)
-      })),
-      topProductos: (raw?.top_productos || []).map(row => ({
-        nombre: [row.itemcode, row.itemname].filter(Boolean).join(' · '),
-        valor: this.numero(row.cajas),
-        pallets: this.numero(row.pallets),
-        kilos: this.numero(row.kilos)
-      })),
-      camarasStock: (ocupacionStock?.camaras || []).map(row => ({
-        nombre: row.camara || '—',
-        pallets: this.numero(row.pallets),
-        cajas: this.numero(row.cajas),
-        kilos: this.numero(row.kilos),
-        capacidad: this.numero(row.capacidad),
-        porcentaje: this.numero(row.porcentaje),
-        disponibles: this.numero(row.disponibles),
-        sobreCapacidad: Boolean(row.sobre_capacidad)
-      })),
-      camarasMapa: (capacidadMapa?.camaras || []).map(row => ({
-        nombre: row.camara || '—',
-        posicionados: this.numero(row.utilizadas),
-        capacidad: this.numero(row.capacidad),
-        porcentaje: this.numero(row.porcentaje),
-        sobreCapacidad: Boolean(row.sobre_capacidad)
-      })),
-      flujo: [
-        { nombre: 'Sin información', valor: this.numero(etapas.sin_informacion) },
-        { nombre: 'Por verificar', valor: this.numero(etapas.por_verificar) },
-        { nombre: 'Observados', valor: this.numero(etapas.observados) },
-        { nombre: 'Liberados', valor: this.numero(etapas.liberados) },
-        { nombre: 'Preparación envío', valor: this.numero(etapas.preparacion_envio) },
-        { nombre: 'Reproceso', valor: this.numero(etapas.reproceso) }
-      ],
-      insights: (raw?.insights || []).map(item => this.insight(item)).filter(Boolean),
-      generadoEn: raw?.generado_en || null
-    };
-  },
-
   normalizarSeveridad(value) {
     const v = this.normalizarEstado(value);
     if (v.includes('CRIT')) return 'critical';
@@ -353,69 +233,5 @@ const DashboardModel = {
     if (v.includes('ATENC')) return 'atencion';
     if (v.includes('WARN') || v.includes('ADVERT')) return 'advertencia';
     return 'informativa';
-  },
-
-  /** Monitor: resumen y eventos salen del backend; no mezcla colas locales. */
-  async monitor(filtro = 'todos') {
-    const tipo = String(filtro || 'todos').toUpperCase() === 'TODOS'
-      ? 'TODOS'
-      : String(filtro || '').toUpperCase();
-
-    const [rawResumen, rawEventos] = await Promise.all([
-      this.rpc('dashboard', 'monitorResumen'),
-      this.rpc('dashboard', 'monitorEventos', {
-        p_desde: null,
-        p_limite: 100,
-        p_tipo: tipo
-      })
-    ]);
-
-    const estado = rawResumen?.estado_actual || {};
-    const stock = estado?.stock || {};
-    const indicadores = rawResumen?.indicadores || {};
-    const ocupacion = rawResumen?.ocupacion || {};
-
-    const actividad = (rawEventos?.eventos || []).map(row => ({
-      id: row.evento_key || '',
-      tipo: String(row.tipo || 'operacion').toLowerCase(),
-      subtipo: row.subtipo || '',
-      severidad: this.normalizarSeveridad(row.severidad),
-      titulo: row.titulo || row.subtipo || 'Evento operacional',
-      pallet: row.referencia || '',
-      detalle: row.descripcion || '',
-      ubicacion: row.almacen || '',
-      usuario: row.usuario_nombre || '',
-      sincronizacion: row.estado || '',
-      timestamp: Date.parse(row.creado_en || '') || 0
-    }));
-
-    return {
-      rawResumen,
-      rawEventos,
-      stock: this.numero(stock.pallets),
-      cajas: this.numero(stock.cajas),
-      kilos: this.numero(stock.kilos),
-      criticas: this.numero(indicadores.camaras_con_atencion),
-      ocupacionFisica: this.numero(indicadores.ocupacion_fisica_porcentaje),
-      pedidos: this.numero(indicadores.pedidos),
-      reproceso: this.numero(indicadores.reproceso),
-      ocupacionCamaras: (ocupacion.camaras || []).map(row => ({
-        nombre: row.camara || '—',
-        total: this.numero(row.posiciones_utilizadas),
-        problemas: this.numero(row.observados),
-        capacidad: this.numero(row.capacidad),
-        ocupacion: this.numero(row.ocupacion_fisica_porcentaje),
-        sobreCapacidad: Boolean(row.sobre_capacidad)
-      })),
-      alertas: (rawResumen?.alertas || []).map(row => ({
-        nivel: this.normalizarNivelAlerta(row.severidad),
-        titulo: row.titulo || 'Alerta operacional',
-        detalle: row.detalle || '',
-        cantidad: this.numero(row.cantidad)
-      })),
-      actividad,
-      ultimaActividadEn: estado?.ultima_actividad_en || null,
-      actualizadoEn: rawResumen?.generado_en || new Date().toISOString()
-    };
   }
 };
