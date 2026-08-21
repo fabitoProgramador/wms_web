@@ -1,5 +1,5 @@
 /* Shell offline de la aplicación y dependencias necesarias para arrancar vistas cacheadas. */
-const CACHE='wms-map-shell-v130';
+const CACHE='wms-map-shell-v131';
 const CORE=[
   './','./index.html','./assets/logo.png','./assets/icono.ico',
   './css/main.css','./css/components.css','./css/dashboard.css','./css/gruero.css','./css/inventory-operation.css','./css/operaciones.css','./css/operaciones-backend.css','./css/stock.css','./css/mapa-2d5.css','./css/labels.css','./css/reportes.css','./css/responsive.css','./css/theme-system.css',
