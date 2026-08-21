@@ -71,11 +71,11 @@ const DashboardController = {
   },
 
   sparkline(data, color = '#10b981') {
-    if (!data.length) return this.empty('Sin ingresos registrados en el histórico');
+    if (!data.length) return this.empty('Sin snapshots de ocupación registrados');
     const max = Math.max(...data.map(x => x.valor), 1), min = Math.min(...data.map(x => x.valor));
     const values = data.map((x, i) => ({ x: data.length === 1 ? 50 : i / (data.length - 1) * 100, y: 34 - ((x.valor - min) / Math.max(1, max - min)) * 26 }));
     const points = values.map(p => `${p.x},${p.y}`).join(' '), last = values.at(-1), area = `0,38 ${points} 100,38`;
-    return `<svg class="sparkline" viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Recepciones SAP históricas"><defs><linearGradient id="capacitySparkFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".34"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><line class="sparkline-grid" x1="0" y1="38" x2="100" y2="38"/><polygon points="${area}" fill="url(#capacitySparkFill)"/><polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" vector-effect="non-scaling-stroke"/><circle cx="${last.x}" cy="${last.y}" r="2.6" fill="${color}" vector-effect="non-scaling-stroke"/></svg>`;
+    return `<svg class="sparkline" viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Tendencia histórica de ocupación de cámara"><defs><linearGradient id="capacitySparkFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".34"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><line class="sparkline-grid" x1="0" y1="38" x2="100" y2="38"/><polygon points="${area}" fill="url(#capacitySparkFill)"/><polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" vector-effect="non-scaling-stroke"/><circle cx="${last.x}" cy="${last.y}" r="2.6" fill="${color}" vector-effect="non-scaling-stroke"/></svg>`;
   },
 
   bars(items, colors = [], horizontal = false) {
@@ -119,14 +119,20 @@ const DashboardController = {
       const detailState = this.detailState();
       const capacidad = r.capacidad || 0;
       const disponibles = r.disponibles == null ? '—' : r.disponibles.toLocaleString('es-CL');
-      const periodosHistoricos = r.tendencia.length;
+      const delta = r.tendenciaActual?.deltaPallets;
+      const deltaTexto = delta == null
+        ? 'BASE'
+        : `${delta > 0 ? '↗ +' : delta < 0 ? '↘ ' : '→ '}${delta.toLocaleString('es-CL')} PLT`;
+      const tendenciaDetalle = r.tendencia.length > 1
+        ? 'Cambio neto entre sincronizaciones SAP'
+        : 'Baseline inicial · se actualizará con nuevos snapshots SAP';
 
       container.innerHTML = `<section class="panel-control-view">
         ${this.operationalHeader()}
         <article class="capacity-hero panel-surface">
           <div class="capacity-ring" style="--pct:${r.ocupacion.toFixed(1)}"><div><strong>${r.ocupacion.toFixed(1)}%</strong></div></div>
           <div class="capacity-main"><h2>${r.stock.toLocaleString('es-CL')} <small>/ ${capacidad ? capacidad.toLocaleString('es-CL') : '—'} PLT</small></h2><p class="capacity-chamber">CÁMARA ${this.escape(r.camara || 'PROTER')}</p><div class="capacity-stats"><div><i>📦</i><span><em class="rot-largo">Cajas en cámara</em><em class="rot-corto">Cajas</em></span><b>${r.cajas.toLocaleString('es-CL')}</b></div><div><i>🟩</i><span><em class="rot-largo">Disponibles</em><em class="rot-corto">Disponibles</em></span><b>${disponibles}</b></div><div><i>❄️</i><span><em class="rot-largo">Cámaras activas</em><em class="rot-corto">Cámaras</em></span><b>${r.camaras}</b></div></div></div>
-          <div class="capacity-trend"><div class="capacity-trend-meta"><span>RECEPCIONES SAP</span><b>${periodosHistoricos ? `${periodosHistoricos} período${periodosHistoricos === 1 ? '' : 's'}` : '—'}</b><small>Histórico mensual del stock actual</small></div>${this.sparkline(r.tendencia)}</div>
+          <div class="capacity-trend"><div class="capacity-trend-meta"><span>TENDENCIA DE OCUPACIÓN</span><b>${deltaTexto}</b><small>${this.escape(tendenciaDetalle)}</small></div>${this.sparkline(r.tendencia)}</div>
         </article>
         <div class="state-kpi-grid" aria-label="Estados operacionales">${r.porEstado.map(x => this.kpiCard(x)).join('')}</div>
         <div id="dashboardStateDetail">${detailState ? this.stateDetailShell(detailState) : ''}</div>
