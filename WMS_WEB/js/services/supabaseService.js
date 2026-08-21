@@ -1,15 +1,15 @@
 /**
  * Puente único entre WMS_WEB y el backend real de Supabase.
  *
- * FASE DE MIGRACIÓN
+ * FUENTE DE VERDAD
  * --------------------------------------------------------------------
- * Este servicio sólo toma control cuando SUPABASE_CONFIG.HABILITADO=true.
- * Mientras sea false, los controladores actuales continúan usando sus datos
- * locales. La migración se hará vista por vista sin reescribir la UI.
- *
  * Identidad: Supabase Auth (correo + contraseña).
  * Autorización: public.wms_sesion_actual() + RBAC WMS.
- * Ningún permiso del navegador reemplaza a RLS/RPC del backend.
+ * Datos operacionales: RPCs públicos wms_*.
+ *
+ * No existe fallback a datos de negocio locales. sessionStorage se usa sólo
+ * para conservar los tokens Auth durante la sesión del navegador; al recargar
+ * siempre se vuelve a validar la sesión contra wms_sesion_actual().
  */
 const SupabaseService = {
   _sesion: null,
@@ -25,7 +25,6 @@ const SupabaseService = {
       'Content-Type': 'application/json'
     };
 
-    // Los perfiles PostgREST sólo corresponden a /rest/v1, no a GoTrue/Auth.
     if (!this._esAuth(ruta)) {
       base['Accept-Profile'] = SUPABASE_CONFIG.ESQUEMA;
       base['Content-Profile'] = SUPABASE_CONFIG.ESQUEMA;
@@ -40,8 +39,6 @@ const SupabaseService = {
       return { ok: false, error: SUPABASE_CONFIG.diagnostico(), deshabilitado: true };
     }
 
-    // Antes de cualquier llamada PostgREST se renueva la sesión si está cerca
-    // de vencer. Se evita hacerlo para la propia llamada de refresh.
     if (!this._esAuth(ruta) && this._sesion?.refresh_token) {
       const renovada = await this.renovarSiHaceFalta();
       if (!renovada.ok) return renovada;
@@ -81,7 +78,7 @@ const SupabaseService = {
     try { return JSON.parse(texto); } catch (_) { return texto || null; }
   },
 
-  /** RPC atómico del backend. Los controladores futuros deben entrar por acá. */
+  /** RPC atómico del backend. Los controladores migrados deben entrar por acá. */
   async funcion(nombre, parametros = {}) {
     return this.pedir(`/rest/v1/rpc/${nombre}`, {
       method: 'POST',
@@ -106,14 +103,14 @@ const SupabaseService = {
       usuarioAuth: datos.user || this._sesion?.usuarioAuth || null
     };
     try {
-      localStorage.setItem(SUPABASE_CONFIG.SESSION_STORAGE_KEY, JSON.stringify(this._sesion));
+      sessionStorage.setItem(SUPABASE_CONFIG.SESSION_STORAGE_KEY, JSON.stringify(this._sesion));
     } catch (_) {}
     return true;
   },
 
   _leerSesionGuardada() {
     try {
-      const value = JSON.parse(localStorage.getItem(SUPABASE_CONFIG.SESSION_STORAGE_KEY) || 'null');
+      const value = JSON.parse(sessionStorage.getItem(SUPABASE_CONFIG.SESSION_STORAGE_KEY) || 'null');
       return value?.access_token && value?.refresh_token ? value : null;
     } catch (_) {
       return null;
@@ -122,7 +119,7 @@ const SupabaseService = {
 
   _limpiarSesion() {
     this._sesion = null;
-    try { localStorage.removeItem(SUPABASE_CONFIG.SESSION_STORAGE_KEY); } catch (_) {}
+    try { sessionStorage.removeItem(SUPABASE_CONFIG.SESSION_STORAGE_KEY); } catch (_) {}
   },
 
   async ingresar(email, password) {
@@ -136,7 +133,7 @@ const SupabaseService = {
       body: JSON.stringify({ email: correo, password: clave })
     });
 
-    // Nunca revelar si falló el correo o la contraseña: evita enumerar cuentas.
+    // Mensaje deliberadamente genérico para evitar enumeración de cuentas.
     if (!auth.ok) return { ok: false, error: 'Correo o contraseña incorrectos.', estado: auth.estado };
     this._guardarSesion(auth.datos);
 
@@ -154,9 +151,7 @@ const SupabaseService = {
   },
 
   /**
-   * Restaura una sesión al recargar la página. No confía sólo en localStorage:
-   * después de refrescar el token vuelve a consultar wms_sesion_actual(), que
-   * valida usuario, rol, email, vigencia y permisos en el servidor.
+   * Restaura una sesión al recargar la página y vuelve a validarla en backend.
    */
   async restaurarSesion() {
     if (!SUPABASE_CONFIG.listo()) return { ok: false, deshabilitado: true };
@@ -217,10 +212,7 @@ const SupabaseService = {
     return this.rpc('auth', 'sesionActual');
   },
 
-  /**
-   * Adaptador temporal hacia el shape que consume hoy AppController/UserModel.
-   * Es sólo presentación/caché. Los permisos autoritativos siguen en el backend.
-   */
+  /** Adaptador de sesión backend al shape visual actual. */
   usuarioInterfaz(sesion = {}) {
     const u = sesion?.usuario || {};
     const r = sesion?.rol || {};
@@ -262,7 +254,7 @@ const SupabaseService = {
       body: JSON.stringify({ email: correo })
     });
 
-    // Respuesta deliberadamente genérica para no confirmar si el correo existe.
+    // No confirmar si el correo existe.
     if (!r.ok && r.red) return r;
     return { ok: true };
   },
