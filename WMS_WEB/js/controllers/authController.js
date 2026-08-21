@@ -1,14 +1,9 @@
 /**
  * Login WMS_WEB.
  *
- * MIGRACIÓN CONTROLADA
- * --------------------------------------------------------------------
- * La composición visual se conserva. Sólo cambia el contrato de datos:
- * - modo local (SUPABASE_CONFIG.HABILITADO=false): sigue usando UserModel;
- * - modo remoto: correo + contraseña -> Supabase Auth -> wms_sesion_actual().
- *
- * Esto permite probar cada sección sin obligar a migrar toda la aplicación
- * en un solo despliegue.
+ * FUENTE DE VERDAD: Supabase Auth + public.wms_sesion_actual().
+ * No existe autenticación local ni fallback por contraseña almacenada en el
+ * navegador. La composición visual y sus clases CSS se conservan.
  */
 const AuthController = {
   container: null,
@@ -23,10 +18,6 @@ const AuthController = {
     titulo: 'Gestión logística en frío,<br><span class="auth-title-accent">en tiempo real</span>',
     descripcion: 'Controlá cámaras, inventario y despacho desde un solo lugar. Rápido, claro y siempre sincronizado.',
     pieSeguridad: 'Acceso seguro · Sistema Frigorífico Parral'
-  },
-
-  backendActivo() {
-    return typeof SUPABASE_CONFIG !== 'undefined' && SUPABASE_CONFIG.listo();
   },
 
   init(containerElement) {
@@ -123,12 +114,7 @@ const AuthController = {
         </form>
       </div>
     `;
-
-    requestAnimationFrame(() => {
-      (this.backendActivo()
-        ? document.getElementById('wmsLoginEmail')
-        : document.getElementById('wmsLoginPass'))?.focus();
-    });
+    requestAnimationFrame(() => document.getElementById('wmsLoginEmail')?.focus());
   },
 
   showRecovery() {
@@ -178,53 +164,32 @@ const AuthController = {
       return;
     }
 
-    if (this.backendActivo()) {
-      const emailValido = Boolean(email && email.includes('@'));
-      const passValida = Boolean(password);
-      emailInput?.classList.toggle('is-invalid', !emailValido);
-      passInput?.classList.toggle('is-invalid', !passValida);
-      if (!emailValido || !passValida) {
-        error.textContent = !emailValido ? 'Ingresá un correo electrónico válido.' : 'Ingresá tu contraseña.';
-        error.hidden = false;
-        (!emailValido ? emailInput : passInput)?.focus();
-        return;
-      }
-
-      if (submit) submit.disabled = true;
-      const result = await SupabaseService.ingresar(email, password);
-      if (submit) submit.disabled = false;
-
-      if (!result.ok || !result.usuario) {
-        SeguridadService.registrarFallo();
-        error.textContent = result.error || 'No fue posible iniciar sesión.';
-        error.hidden = false;
-        emailInput?.classList.add('is-invalid');
-        passInput?.classList.add('is-invalid');
-        if (passInput) passInput.value = '';
-        passInput?.focus();
-        return;
-      }
-
-      error.hidden = true;
-      emailInput?.classList.remove('is-invalid');
-      passInput?.classList.remove('is-invalid');
-      SeguridadService.reiniciarIntentos();
-      this.pendingUser = result.usuario;
-
-      // Cache de presentación temporal. La autorización real sigue en RLS/RPC.
-      UserModel.setCurrentUser(result.usuario);
-      this.showLoading();
+    const emailValido = Boolean(email && email.includes('@'));
+    const passValida = Boolean(password);
+    emailInput?.classList.toggle('is-invalid', !emailValido);
+    passInput?.classList.toggle('is-invalid', !passValida);
+    if (!emailValido || !passValida) {
+      error.textContent = !emailValido ? 'Ingresá un correo electrónico válido.' : 'Ingresá tu contraseña.';
+      error.hidden = false;
+      (!emailValido ? emailInput : passInput)?.focus();
       return;
     }
 
-    // Modo local transitorio: mantiene la autenticación histórica por clave.
-    // El nuevo input de correo ya está presente, pero no se exige hasta activar
-    // Supabase para no romper las cuentas locales de desarrollo actuales.
-    const user = UserModel.findUserByPass(password);
-    if (!user) {
-      SeguridadService.registrarFallo();
-      error.textContent = 'Contraseña incorrecta';
+    if (!SUPABASE_CONFIG.listo()) {
+      error.textContent = 'El backend Supabase no está configurado correctamente.';
       error.hidden = false;
+      return;
+    }
+
+    if (submit) submit.disabled = true;
+    const result = await SupabaseService.ingresar(email, password);
+    if (submit) submit.disabled = false;
+
+    if (!result.ok || !result.usuario) {
+      SeguridadService.registrarFallo();
+      error.textContent = result.error || 'No fue posible iniciar sesión.';
+      error.hidden = false;
+      emailInput?.classList.add('is-invalid');
       passInput?.classList.add('is-invalid');
       if (passInput) passInput.value = '';
       passInput?.focus();
@@ -232,11 +197,10 @@ const AuthController = {
     }
 
     error.hidden = true;
+    emailInput?.classList.remove('is-invalid');
     passInput?.classList.remove('is-invalid');
-    this.pendingUser = user;
     SeguridadService.reiniciarIntentos();
-    SeguridadService.marcarInicioSesion();
-    UserModel.setCurrentUser(user);
+    this.pendingUser = UserModel.setCurrentUser(result.usuario);
     this.showLoading();
   },
 
@@ -256,12 +220,6 @@ const AuthController = {
       return;
     }
 
-    if (!this.backendActivo()) {
-      error.hidden = true;
-      this.showRecoverySent(email, false);
-      return;
-    }
-
     if (submit) submit.disabled = true;
     const result = await SupabaseService.recuperarPassword(email);
     if (submit) submit.disabled = false;
@@ -273,17 +231,15 @@ const AuthController = {
     }
 
     error.hidden = true;
-    this.showRecoverySent(email, true);
+    this.showRecoverySent(email);
   },
 
-  showRecoverySent(email, enviado) {
+  showRecoverySent(email) {
     this.getPanel().innerHTML = `
       <div class="auth-state auth-state-center auth-state-success">
         <div class="auth-success-icon" aria-hidden="true">✓</div>
-        <h2 id="authTitle">${enviado ? 'Revisá tu correo' : 'Recuperación preparada'}</h2>
-        <p>${enviado
-          ? `Si existe una cuenta asociada a <strong>${this.escapeHtml(email)}</strong>, recibirá las instrucciones para restablecer su contraseña.`
-          : 'El flujo de recuperación ya está preparado para Supabase. Se activará junto con el backend del Login.'}</p>
+        <h2 id="authTitle">Revisá tu correo</h2>
+        <p>Si existe una cuenta asociada a <strong>${this.escapeHtml(email)}</strong>, recibirá las instrucciones para restablecer su contraseña.</p>
         <button type="button" class="btn-primary auth-submit auth-success-button" onclick="AuthController.showLogin()">Entendido</button>
       </div>
     `;
@@ -301,9 +257,9 @@ const AuthController = {
       </div>
     `;
 
-    this.queueLoadingStep(180, 30, 'Verificando conexión...', 'Comprobando acceso a la red');
-    this.queueLoadingStep(620, 55, 'Verificando sesión...', this.backendActivo() ? 'Validando identidad y rol WMS' : (navigator.onLine ? 'Conexión verificada' : 'Modo local (sin red)'));
-    this.queueLoadingStep(980, 80, 'Cargando entorno...', this.backendActivo() ? 'Aplicando permisos del backend' : 'Sincronizando inventario');
+    this.queueLoadingStep(180, 30, 'Verificando conexión...', 'Conectando con Supabase');
+    this.queueLoadingStep(620, 55, 'Verificando sesión...', 'Validando identidad y rol WMS');
+    this.queueLoadingStep(980, 80, 'Cargando entorno...', 'Aplicando permisos del backend');
     this.queueLoadingStep(1330, 95, 'Cargando entorno...', 'Cargando módulos de seguridad');
     this.queueLoadingStep(1650, 100, 'Cargando entorno...', 'Carga completada');
     this.loadingTimers.push(setTimeout(() => this.showReady(), 1850));
