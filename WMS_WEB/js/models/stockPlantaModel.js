@@ -14,6 +14,17 @@ const StockPlantaModel = {
     return Number.isNaN(d.getTime()) ? String(value) : d.toLocaleDateString('es-CL');
   },
 
+  condiciones(row = {}) {
+    const out = [];
+    if (row.flag_verificacion) out.push('VERIFICACIÓN');
+    if (row.flag_sin_dm) out.push('SIN DM');
+    if (row.flag_sin_informacion) out.push('SIN INFORMACIÓN');
+    if (row.flag_lote_incompleto) out.push('LOTES INCOMPLETOS');
+    if (row.flag_prohibicion) out.push('PROHIBICIONES');
+    if (row.flag_pedido) out.push('PEDIDO');
+    return out;
+  },
+
   async rpc(nombre, parametros = {}) {
     const response = await SupabaseService.rpc('stock', nombre, parametros);
     if (!response.ok) {
@@ -28,6 +39,11 @@ const StockPlantaModel = {
 
   normalizarFila(row = {}) {
     const reservaTexto = String(row.u_rerservado || '').trim();
+    const condiciones = this.condiciones(row);
+    const estadoWmsEfectivo = row.estado_operativo || row.estado_wms || row.estado_sap || row.estado_calidad_normalizado || '—';
+    const estadoWmsRegistrado = row.estado_wms || null;
+    const flujo = row.estado_principal || estadoWmsEfectivo || '—';
+    const decision = row.decision_gerencia === 'AUTORIZADO_ENVIAR' ? 'AUTORIZADO A ENVIAR' : (row.decision_gerencia || null);
     return {
       ...row,
       id: row.id_lote || '',
@@ -41,8 +57,16 @@ const StockPlantaModel = {
       kilos_stock: this.numero(row.kilos),
       fecha_fabricacion: this.fecha(row.fecha_prod),
       fecha_admision: this.fecha(row.fecha_rec),
-      estado_calidad: row.estado_calidad_normalizado || row.est_calidad || '—',
-      estado: row.estado_principal || row.estado_operativo || row.estado_wms || row.estado_sap || '—',
+      estado_calidad: row.estado_calidad_normalizado || row.est_calidad || row.estado_sap || '—',
+      estado_sap_display: row.estado_sap || row.estado_calidad_normalizado || row.est_calidad || '—',
+      estado_wms_registrado_display: estadoWmsRegistrado || 'SIN ESTADO WMS PROPIO',
+      estado_wms_efectivo_display: estadoWmsEfectivo,
+      flujo_display: flujo,
+      condiciones_wms_array: condiciones,
+      condiciones_display: condiciones.length ? condiciones.join(' · ') : 'Sin condiciones pendientes',
+      decision_display: decision || 'Sin decisión gerencial',
+      modalidad_display: row.modalidad_gerencia || '—',
+      estado: flujo,
       info_calidad: row.u_inf_cal || '—',
       info_general: row.u_inf_g || '—',
       info_detallada: row.notes || '—',
