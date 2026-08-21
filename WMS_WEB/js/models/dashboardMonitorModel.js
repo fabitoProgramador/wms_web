@@ -47,6 +47,8 @@
       filtros,
       sincronizacion: {
         sincronizado: Boolean(sync.sincronizado),
+        filasSap: this.numero(sync.filas_sap),
+        idsLoteDistintos: this.numero(sync.ids_lote_distintos ?? sync.ids_padre),
         idsPadre: this.numero(sync.ids_padre),
         instanciasActivas: this.numero(sync.instancias_wms_activas),
         diferencia: this.numero(sync.diferencia_identidades),
