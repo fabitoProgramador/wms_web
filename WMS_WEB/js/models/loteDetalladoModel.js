@@ -43,6 +43,16 @@ const LoteDetalladoModel = {
     const lote = raw.lote || {};
     const totales = raw.totales || {};
     const mapa = raw.mapa || {};
+    const condicionesWms = Array.isArray(raw.condiciones_wms)
+      ? raw.condiciones_wms.filter(Boolean)
+      : String(lote.requisitos || '').split(',').map(x => x.trim().replaceAll('_',' ')).filter(Boolean);
+    const decision = lote.decision_gerencia === 'AUTORIZADO_ENVIAR'
+      ? 'AUTORIZADO A ENVIAR'
+      : (lote.decision_gerencia || null);
+    const modalidad = lote.decision_gerencia === 'AUTORIZADO_ENVIAR' && ['LIBERADO','RETAIL'].includes(lote.modalidad_gerencia)
+      ? lote.modalidad_gerencia
+      : (lote.modalidad_gerencia || null);
+
     const ocurrencias = (raw.ocurrencias_sap || []).map(row => ({
       almacen:row.almacen || row.whsname || row.whscode || '—',
       whscode:row.whscode || '',
@@ -86,10 +96,14 @@ const LoteDetalladoModel = {
       ocurrencias,
       fechaFabricacion:this.fecha(lote.fecha_prod),
       fechaAdmision:this.fecha(lote.fecha_rec),
-      estadoSap:lote.estado_sap || lote.est_calidad || '',
-      estadoWms:lote.estado_wms || '',
-      estadoOperativo:lote.estado_operativo || '',
-      estadoPrincipal:lote.estado_principal || lote.estado_operativo || lote.estado_wms || lote.estado_sap || '—',
+      estadoSap:lote.estado_sap || lote.est_calidad || 'SIN INFORMACIÓN',
+      estadoWmsRegistrado:lote.estado_wms || 'SIN ESTADO WMS PROPIO',
+      estadoWmsEfectivo:lote.estado_operativo || lote.estado_wms || lote.estado_sap || 'SIN ESTADO',
+      flujoOperativo:lote.estado_principal || lote.estado_operativo || lote.estado_wms || lote.estado_sap || 'SIN ESTADO',
+      condicionesWms,
+      condicionesDisplay:condicionesWms.length ? condicionesWms.join(' · ') : 'Sin condiciones pendientes',
+      decisionGerencia:decision || 'Sin decisión gerencial',
+      modalidadGerencia:modalidad || '—',
       estadoCalidad:lote.estado_calidad_normalizado || lote.est_calidad || 'SIN INFORMACIÓN',
       infoCalidad:lote.u_inf_cal || '',
       infoGeneral:lote.u_inf_g || '',
@@ -100,6 +114,7 @@ const LoteDetalladoModel = {
       enPedido:Boolean(lote.en_pedido),
       pedidoEn:lote.pedido_en || null,
       diasEnPedido:lote.dias_en_pedido == null ? null : this.numero(lote.dias_en_pedido),
+      auditoria:raw.auditoria || null,
       mapa:{
         posiciones:posicionesMapa,
         cantidad:this.numero(mapa.cantidad_posiciones),
