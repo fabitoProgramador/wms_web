@@ -5,13 +5,13 @@ const SECCIONES = [
   { id: 'monitor_tiempo_real', titulo: 'Monitor en Tiempo Real', categoria: 'Panel de Control', icono: '🔴' },
 
   { id: 'movimientos', titulo: 'Movimientos de Cámara', categoria: 'Operaciones', icono: '🔄' },
-  { id: 'despacho', titulo: 'Despacho y Reproceso', categoria: 'Operaciones', icono: '🚚' },
+  { id: 'despacho', titulo: 'Despacho', categoria: 'Operaciones', icono: '🚚' },
   { id: 'aprobaciones', titulo: 'Gestión de Aprobaciones', categoria: 'Operaciones', icono: '✅' },
-  // Registros operacionales remotos. `permiso` controla visibilidad de lectura;
-  // las acciones internas verifican sus permisos registrar/modificar/eliminar.
+  { id: 'centro_etiquetas', titulo: 'Centro de Etiquetas', categoria: 'Operaciones', icono: '🏷️' },
+
+  // Registros operacionales remotos: siempre cierran el submenú Operaciones.
   { id: 'bitacora', titulo: 'Bitácora', categoria: 'Operaciones', icono: '📓', permiso: 'bitacora.ver' },
   { id: 'registro_verificaciones', titulo: 'Registro de Verificaciones', categoria: 'Operaciones', icono: '🧪', permiso: 'verificaciones.ver' },
-  { id: 'centro_etiquetas', titulo: 'Centro de Etiquetas', categoria: 'Operaciones', icono: '🏷️' },
 
   { id: 'stock_planta', titulo: 'Stock en Planta', categoria: 'Stock y Lotes', icono: '📦' },
   { id: 'lote_detallado', titulo: 'Lote Detallado', categoria: 'Stock y Lotes', icono: '🔍' },
@@ -25,6 +25,9 @@ const SECCIONES = [
   { id: 'administracion', titulo: 'Administración de Usuarios', categoria: 'Configuración', icono: '⚙️' }
 ];
 
-// Operaciones especiales visibles según rol/permisos actuales del shell.
-SECCIONES.splice(8, 0, { id: 'gruero', titulo: 'Operación Gruero', categoria: 'Operaciones', icono: '🏗️', roles: ['GRUERO', 'ADMIN', 'PLANT_MANAGER'] });
-SECCIONES.splice(9, 0, { id: 'operacion_inventario', titulo: 'Operación Inventario', categoria: 'Operaciones', icono: '▣', roles: ['GRUERO', 'ADMIN', 'PLANT_MANAGER'] });
+// Operaciones especiales se insertan antes de los dos registros finales.
+const indiceRegistrosOperaciones = SECCIONES.findIndex(s => s.id === 'bitacora');
+SECCIONES.splice(indiceRegistrosOperaciones, 0,
+  { id: 'gruero', titulo: 'Operación Gruero', categoria: 'Operaciones', icono: '🏗️', roles: ['GRUERO', 'ADMIN', 'PLANT_MANAGER'] },
+  { id: 'operacion_inventario', titulo: 'Operación Inventario', categoria: 'Operaciones', icono: '▣', roles: ['GRUERO', 'ADMIN', 'PLANT_MANAGER'] }
+);
