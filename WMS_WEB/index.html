@@ -60,7 +60,15 @@
   <script src="js/models/mapaModel.js"></script>
   <script src="js/services/grueroCodeResolver.js"></script>
   <script src="js/services/mapaOfflineService.js"></script>
+
+  <!--
+    PanelControlModel conserva temporalmente sólo contratos legacy de Bitácora
+    y Verificaciones hasta que esos módulos sean migrados. DashboardModel es
+    la única fuente del Panel de Control y consume exclusivamente Supabase.
+  -->
   <script src="js/models/panelControlModel.js"></script>
+  <script src="js/models/dashboardModel.js"></script>
+
   <script src="js/models/operacionesModel.js"></script>
   <script src="js/models/stockModel.js"></script>
   <script src="js/models/labelHistoryModel.js"></script>
