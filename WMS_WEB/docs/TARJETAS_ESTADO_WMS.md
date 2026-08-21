@@ -61,4 +61,17 @@ Asignar VERIFICACIÓN o SIN DM a un pallet RECHAZADO no levanta automáticamente
 - Stock y Lotes → Stock en Planta → Detalle General.
 - Reportes Operacionales → Visualizar Stock.
 
-Visualizar Stock usa `ReportesStockModel` / `ReportesStockController` y sus RPC de Reportes. `ReportesModel` legacy queda temporalmente sólo por **Generar Reporte**, que se migrará en su propia fase.
+### Visualizar Stock
+
+Usa exclusivamente:
+
+- `ReportesStockModel`
+- `ReportesStockController`
+- `wms_reportes_catalogos`
+- `wms_reportes_stock_listar`
+- `wms_reportes_stock_exportar`
+- `wms_reportes_stock_valores_filtro`
+
+Conserva búsqueda, filtros de almacén/estado, filtros por columna, paginación, copiar fila, copiar todo y Excel, todos ejecutados contra Supabase. El total base es **1.064 registros SAP**, no 1.064 pallets.
+
+`ReportesModel` legacy queda temporalmente sólo por **Generar Reporte**, que se migrará en su propia fase.
