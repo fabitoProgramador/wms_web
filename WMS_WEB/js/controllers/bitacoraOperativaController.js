@@ -9,6 +9,7 @@ const BitacoraOperativaController = {
   requestId:0,
   searchTimer:null,
   actual:null,
+  draft:null,
 
   esc(v) { return SeguridadService.escaparHtml(v); },
   fmt(v) { return Number(v || 0).toLocaleString('es-CL'); },
@@ -21,6 +22,7 @@ const BitacoraOperativaController = {
     this.id=null;
     this.pagina=0;
     this.actual=null;
+    this.draft=null;
     this.requestId+=1;
     clearTimeout(this.searchTimer);
     this.render();
@@ -55,6 +57,7 @@ const BitacoraOperativaController = {
     this.id=null;
     this.pagina=0;
     this.actual=null;
+    this.draft=null;
     this.requestId+=1;
     this.render();
   },
@@ -166,11 +169,27 @@ const BitacoraOperativaController = {
     } catch(error) { if(req===this.requestId) body.innerHTML=this.errorHtml(error); }
   },
 
+  capturarDraft() {
+    const f=document.getElementById('bitForm');
+    if(!f)return null;
+    return {
+      planificacion:this.collect(f,'plan',['etiqueta','valor']),
+      resumen:this.collect(f,'resumen',['texto']),
+      verificados:this.collect(f,'verificados',['motivo','cantidad']),
+      rechazados:this.collect(f,'rechazados',['motivo','cantidad']),
+      reproceso:f.reproceso?.value||'0'
+    };
+  },
+
   pintarFormulario(data) {
     const body=this.body(); if(!body)return;
-    const edit=Boolean(data?.bitacora), b=data?.bitacora||{}, pre=data?.precarga||{}, ajustes=BitacoraModel.separarAjustes(b.ajustes_kpi||[]);
+    const edit=Boolean(data?.bitacora), b=data?.bitacora||{}, pre=data?.precarga||{};
     const turno=data.turno||b.turno||'DIA', fecha=data.fecha_operacional||BitacoraModel.hoyIso();
-    const plan=edit?(b.planificacion||[]):(pre.planificacion||[]), resumen=edit?(b.resumen_manual||[]):(pre.resumen_manual||[]);
+    const baseAjustes=edit?BitacoraModel.separarAjustes(b.ajustes_kpi||[]):{verificados:[],rechazados:[],reproceso:0};
+    const d=!edit?this.draft:null;
+    const plan=edit?(b.planificacion||[]):(d?.planificacion||pre.planificacion||[]);
+    const resumen=edit?(b.resumen_manual||[]):(d?.resumen||pre.resumen_manual||[]);
+    const ajustes=edit?baseAjustes:{verificados:d?.verificados||[],rechazados:d?.rechazados||[],reproceso:d?.reproceso??0};
     const existente=!edit&&data.existente;
     body.innerHTML=`${edit?`<div class="form-top-actions"><button class="back-link" onclick="BitacoraOperativaController.id=null;BitacoraOperativaController.tab='modificar';BitacoraOperativaController.render()">← Volver a la lista</button>${this.puede('bitacora.eliminar')?`<button class="danger-btn" onclick="BitacoraOperativaController.anularActual()">Anular esta bitácora</button>`:''}</div>`:''}
       ${existente?`<div class="lote-duplicate">ℹ️ Ya existe ${this.esc(existente.folio_visual||'una bitácora')} activa para ${BitacoraModel.fechaVisible(fecha)} / ${turno}. Usa “Modificar Datos” si necesitas cambiarla.</div>`:''}
@@ -179,7 +198,7 @@ const BitacoraOperativaController = {
         <article class="form-section panel-surface"><div class="form-section-title"><div><h2>${edit?'Modificar bitácora':'Nueva bitácora'}</h2><p>${BitacoraModel.fechaVisible(fecha)} · planificación, resumen operacional y KPI.</p></div><div class="bit-shift-field"><span>Turno</span><div class="bit-shift-toggle ${turno==='NOCHE'?'night':'day'}"><button type="button" class="${turno==='DIA'?'active':''}" onclick="BitacoraOperativaController.seleccionarTurno('DIA',${edit?'true':'false'})">☀ Día</button><button type="button" class="${turno==='NOCHE'?'active':''}" onclick="BitacoraOperativaController.seleccionarTurno('NOCHE',${edit?'true':'false'})">🌙 Noche</button></div><input id="bitTurno" type="hidden" name="turno" value="${turno}"></div></div></article>
         ${this.rowsSection('Planificación','plan',plan,['etiqueta','valor'],['Concepto','Valor'])}${this.rowsSection('Resumen del turno','resumen',resumen,['texto'],['Evento o resumen'])}
         ${this.seccionPendientes(data.pendientes_actuales||{})}
-        <section class="bit-kpi-editor"><div class="bit-kpi-title"><h3>📊 KPI del turno <small>Ajuste manual</small></h3>${this.seccionKpiCompacta(data.kpi_turno||{})}</div><div class="form-two-cols">${this.rowsSection('🔍 Verificados','verificados',ajustes.verificados,['motivo','cantidad'],['Motivo','Cantidad'])}${this.rowsSection('❌ Rechazados','rechazados',ajustes.rechazados,['motivo','cantidad'],['Motivo','Cantidad'])}<article class="form-section panel-surface bit-kpi-reprocess"><h3>🔄 A reproceso</h3><label>PLT<input class="form-control compact-input" type="number" min="0" name="reproceso" value="${this.fmt(ajustes.reproceso)}"></label><small>Ajuste manual auditado</small></article></div></section>
+        <section class="bit-kpi-editor"><div class="bit-kpi-title"><h3>📊 KPI del turno <small>Ajuste manual</small></h3>${this.seccionKpiCompacta(data.kpi_turno||{})}</div><div class="form-two-cols">${this.rowsSection('🔍 Verificados','verificados',ajustes.verificados,['motivo','cantidad'],['Motivo','Cantidad'])}${this.rowsSection('❌ Rechazados','rechazados',ajustes.rechazados,['motivo','cantidad'],['Motivo','Cantidad'])}<article class="form-section panel-surface bit-kpi-reprocess"><h3>🔄 A reproceso</h3><label>PLT<input class="form-control compact-input" type="number" min="0" name="reproceso" value="${this.esc(ajustes.reproceso)}"></label><small>Ajuste manual auditado</small></article></div></section>
         <div id="bitError" class="form-error"></div><div class="form-submit"><button type="submit" class="btn-primary" ${existente?'disabled':''}><i class="wi wi-save"></i>${edit?'Guardar cambios':'Guardar bitácora'}</button></div>
       </form>`;
     OperacionesController.ajustarListas?.();
@@ -199,7 +218,10 @@ const BitacoraOperativaController = {
   collect(form,key,fields) { const first=[...form.querySelectorAll(`[name="${key}_${fields[0]}"]`)]; return first.map((_,i)=>Object.fromEntries(fields.map(f=>[f,form.querySelectorAll(`[name="${key}_${f}"]`)[i]?.value||'']))); },
 
   seleccionarTurno(turno,editing=false) {
-    if(!editing)return this.cargarFormulario(null,turno);
+    if(!editing) {
+      this.draft=this.capturarDraft();
+      return this.cargarFormulario(null,turno);
+    }
     const input=document.getElementById('bitTurno'); if(input)input.value=turno;
     document.querySelector('.bit-shift-toggle')?.classList.toggle('night',turno==='NOCHE');
     document.querySelector('.bit-shift-toggle')?.classList.toggle('day',turno==='DIA');
@@ -212,6 +234,7 @@ const BitacoraOperativaController = {
     try {
       if(this.actual?.bitacora) await BitacoraModel.modificar({id:this.actual.bitacora.bitacora_id,version:this.actual.bitacora.version,...payload});
       else await BitacoraModel.crear(payload);
+      this.draft=null;
       this.toast(this.actual?.bitacora?'Bitácora actualizada en Supabase.':'Bitácora guardada en Supabase.');
       this.cambiarTab('visualizar');
     } catch(error) {
