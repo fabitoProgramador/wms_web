@@ -1,240 +1,290 @@
 /**
- * Puente con Supabase.
+ * Puente único entre WMS_WEB y el backend real de Supabase.
  *
- * ====================================================================
- * INACTIVO MIENTRAS `SUPABASE_CONFIG.HABILITADO` SEA false.
- * Ningún módulo del sistema depende todavía de este archivo. Existe para
- * que el backend se pueda ir armando y probando por partes, sin tocar lo
- * que hoy funciona.
- * ====================================================================
+ * FASE DE MIGRACIÓN
+ * --------------------------------------------------------------------
+ * Este servicio sólo toma control cuando SUPABASE_CONFIG.HABILITADO=true.
+ * Mientras sea false, los controladores actuales continúan usando sus datos
+ * locales. La migración se hará vista por vista sin reescribir la UI.
  *
- * POR QUÉ NO USA LA LIBRERÍA OFICIAL
- * Supabase expone una API REST (PostgREST) que se consume con `fetch`.
- * Traer el SDK completo significaría un bundle y una dependencia externa
- * en un proyecto que hoy no tiene ninguna. Para lo que el WMS necesita
- * —leer, insertar, actualizar y llamar funciones— alcanza con fetch, y
- * así el proyecto sigue sin cadena de dependencias que auditar.
- *
- * DÓNDE ENCAJA
- * El sistema ya tiene dos contratos de adaptador esperando:
- *   window.WmsSyncAdapter.sendMovement(item)   -> Operación Gruero
- *   window.WmsMapAdapter.fetchSnapshot()       -> Mapa de Cámara
- * Este servicio es lo que después alimentará a esos dos, sin que los
- * controladores se enteren de que hay una base detrás.
+ * Identidad: Supabase Auth (correo + contraseña).
+ * Autorización: public.wms_sesion_actual() + RBAC WMS.
+ * Ningún permiso del navegador reemplaza a RLS/RPC del backend.
  */
 const SupabaseService = {
+  _sesion: null,
 
-  _sesion: null,   // { access_token, refresh_token, expira, usuario }
+  /* ============================= RED ============================== */
 
-  /* ==================================================================
-     LLAMADA BASE
-     ================================================================== */
+  _esAuth(ruta = '') { return String(ruta).startsWith('/auth/v1/'); },
 
-  cabeceras(extra = {}) {
+  cabeceras(ruta = '', extra = {}) {
+    const key = SUPABASE_CONFIG.PUBLISHABLE_KEY;
     const base = {
-      'apikey': SUPABASE_CONFIG.ANON_KEY,
-      'Content-Type': 'application/json',
-      'Accept-Profile': SUPABASE_CONFIG.ESQUEMA,
-      'Content-Profile': SUPABASE_CONFIG.ESQUEMA
+      apikey: key,
+      'Content-Type': 'application/json'
     };
-    /* Con sesión se manda el token del usuario, no la anon: es lo que
-       permite que las políticas de la base sepan QUIÉN pregunta. */
-    base.Authorization = `Bearer ${this._sesion?.access_token || SUPABASE_CONFIG.ANON_KEY}`;
+
+    // Los perfiles PostgREST sólo corresponden a /rest/v1, no a GoTrue/Auth.
+    if (!this._esAuth(ruta)) {
+      base['Accept-Profile'] = SUPABASE_CONFIG.ESQUEMA;
+      base['Content-Profile'] = SUPABASE_CONFIG.ESQUEMA;
+    }
+
+    base.Authorization = `Bearer ${this._sesion?.access_token || key}`;
     return { ...base, ...extra };
   },
 
-  /**
-   * Envoltorio único de red. Devuelve SIEMPRE un objeto, nunca lanza:
-   * el resto del sistema ya trabaja con `{ok:false, error}` y con colas
-   * offline, y una excepción suelta rompería ese flujo.
-   *
-   * @returns {Promise<{ok:boolean, datos?:any, error?:string, estado?:number, red?:boolean}>}
-   */
   async pedir(ruta, opciones = {}, intento = 0) {
     if (!SUPABASE_CONFIG.listo()) {
       return { ok: false, error: SUPABASE_CONFIG.diagnostico(), deshabilitado: true };
     }
+
+    // Antes de cualquier llamada PostgREST se renueva la sesión si está cerca
+    // de vencer. Se evita hacerlo para la propia llamada de refresh.
+    if (!this._esAuth(ruta) && this._sesion?.refresh_token) {
+      const renovada = await this.renovarSiHaceFalta();
+      if (!renovada.ok) return renovada;
+    }
+
     const control = new AbortController();
     const reloj = setTimeout(() => control.abort(), SUPABASE_CONFIG.TIMEOUT_MS);
     try {
       const respuesta = await fetch(`${SUPABASE_CONFIG.URL}${ruta}`, {
         ...opciones,
-        headers: this.cabeceras(opciones.headers),
+        headers: this.cabeceras(ruta, opciones.headers),
         signal: control.signal
       });
       clearTimeout(reloj);
       const cuerpo = await respuesta.text();
       const datos = cuerpo ? this._json(cuerpo) : null;
+
       if (respuesta.ok) return { ok: true, datos, estado: respuesta.status };
-      /* 401 y 403 son decisiones de la base: no se reintentan. Insistir
-         ante un permiso denegado sólo genera ruido y bloqueos. */
       return {
         ok: false,
         estado: respuesta.status,
-        error: datos?.message || datos?.error_description || `Error ${respuesta.status}`,
+        error: datos?.message || datos?.msg || datos?.error_description || datos?.error || `Error ${respuesta.status}`,
         permiso: respuesta.status === 401 || respuesta.status === 403
       };
     } catch (error) {
       clearTimeout(reloj);
       const esRed = error?.name === 'AbortError' || error instanceof TypeError;
       if (esRed && intento < SUPABASE_CONFIG.REINTENTOS) {
-        await new Promise(r => setTimeout(r, 400 * Math.pow(2, intento)));
+        await new Promise(resolve => setTimeout(resolve, 400 * Math.pow(2, intento)));
         return this.pedir(ruta, opciones, intento + 1);
       }
       return { ok: false, red: true, error: 'Sin conexión con el servidor.' };
     }
   },
 
-  _json(texto) { try { return JSON.parse(texto); } catch (_) { return null; } },
-
-  /* ==================================================================
-     TABLAS
-     ================================================================== */
-
-  tabla(nombre) { return SUPABASE_CONFIG.TABLAS[nombre] || nombre; },
-
-  /** SELECT. `filtros` usa la sintaxis de PostgREST: {estado:'eq.LIBERADO'} */
-  async listar(tabla, { filtros = {}, columnas = '*', orden = null, limite = null } = {}) {
-    const p = new URLSearchParams({ select: columnas });
-    Object.entries(filtros).forEach(([k, v]) => p.append(k, v));
-    if (orden) p.append('order', orden);
-    if (limite) p.append('limit', String(limite));
-    return this.pedir(`/rest/v1/${this.tabla(tabla)}?${p}`, { method: 'GET' });
+  _json(texto) {
+    try { return JSON.parse(texto); } catch (_) { return texto || null; }
   },
 
-  async insertar(tabla, filas) {
-    return this.pedir(`/rest/v1/${this.tabla(tabla)}`, {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(Array.isArray(filas) ? filas : [filas])
-    });
-  },
-
-  /**
-   * Insertar-o-actualizar por clave. Es lo que necesita la cola offline:
-   * si un movimiento se reenvía porque el operador perdió señal, la clave
-   * de idempotencia evita que se aplique dos veces.
-   */
-  async upsert(tabla, filas, { conflicto = 'id' } = {}) {
-    return this.pedir(`/rest/v1/${this.tabla(tabla)}?on_conflict=${conflicto}`, {
-      method: 'POST',
-      headers: { Prefer: 'resolution=merge-duplicates,return=representation' },
-      body: JSON.stringify(Array.isArray(filas) ? filas : [filas])
-    });
-  },
-
-  async actualizar(tabla, filtros, cambios) {
-    const p = new URLSearchParams();
-    Object.entries(filtros).forEach(([k, v]) => p.append(k, v));
-    return this.pedir(`/rest/v1/${this.tabla(tabla)}?${p}`, {
-      method: 'PATCH',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(cambios)
-    });
-  },
-
-  /** Función almacenada (RPC). Se usa para operaciones que deben ser atómicas. */
+  /** RPC atómico del backend. Los controladores futuros deben entrar por acá. */
   async funcion(nombre, parametros = {}) {
     return this.pedir(`/rest/v1/rpc/${nombre}`, {
       method: 'POST',
-      body: JSON.stringify(parametros)
+      body: JSON.stringify(parametros || {})
     });
   },
 
-  /* ==================================================================
-     SESIÓN — RUT + PIN
-
-     El sistema de planta se identifica por RUT, no por correo, y el PIN
-     es lo que el operador puede escribir con guantes. Supabase Auth
-     trabaja con correo, así que se traduce: el RUT normalizado forma un
-     correo interno del dominio de la planta, que nadie usa para recibir
-     nada; sólo sirve de identificador estable.
-
-     El PIN NUNCA se guarda ni se compara en el navegador: viaja a
-     Supabase, que lo verifica contra el hash del servidor. Esto es lo
-     que reemplaza al `pass:'admin123'` en texto plano de hoy.
-     ================================================================== */
-
-  DOMINIO_INTERNO: 'planta.local',
-
-  /** 12.345.678-9 -> 123456789 ; se acepta con o sin puntos y guion. */
-  normalizarRut(rut) {
-    return String(rut || '').trim().toUpperCase().replace(/[.\-\s]/g, '');
+  async rpc(grupo, nombre, parametros = {}) {
+    const funcion = SUPABASE_CONFIG.rpc(grupo, nombre);
+    if (!funcion) return { ok: false, error: `RPC no registrado: ${grupo}.${nombre}` };
+    return this.funcion(funcion, parametros);
   },
 
-  correoDeRut(rut) {
-    const limpio = this.normalizarRut(rut);
-    return limpio ? `rut${limpio}@${this.DOMINIO_INTERNO}` : '';
-  },
-
-  /**
-   * Ingreso con RUT y PIN.
-   * @returns {Promise<{ok:boolean, usuario?:object, error?:string}>}
-   */
-  async ingresar(rut, pin) {
-    const correo = this.correoDeRut(rut);
-    if (!correo) return { ok: false, error: 'RUT no válido.' };
-    if (!String(pin || '').trim()) return { ok: false, error: 'Ingrese su PIN.' };
-
-    const r = await this.pedir('/auth/v1/token?grant_type=password', {
-      method: 'POST',
-      body: JSON.stringify({ email: correo, password: String(pin) })
-    });
-    /* El mensaje al operador no distingue entre "ese RUT no existe" y "el
-       PIN está mal": decirlo revelaría qué RUT están registrados. */
-    if (!r.ok) return { ok: false, error: 'RUT o PIN incorrectos.' };
-
-    this._guardarSesion(r.datos);
-    const perfil = await this.perfilActual();
-    return { ok: true, usuario: perfil.datos?.[0] || null };
-  },
+  /* ========================= AUTENTICACIÓN ======================== */
 
   _guardarSesion(datos) {
-    if (!datos?.access_token) return;
+    if (!datos?.access_token) return false;
     this._sesion = {
       access_token: datos.access_token,
-      refresh_token: datos.refresh_token,
+      refresh_token: datos.refresh_token || this._sesion?.refresh_token || null,
       expira: Date.now() + (Number(datos.expires_in) || 3600) * 1000,
-      usuario: datos.user || null
+      usuarioAuth: datos.user || this._sesion?.usuarioAuth || null
+    };
+    try {
+      localStorage.setItem(SUPABASE_CONFIG.SESSION_STORAGE_KEY, JSON.stringify(this._sesion));
+    } catch (_) {}
+    return true;
+  },
+
+  _leerSesionGuardada() {
+    try {
+      const value = JSON.parse(localStorage.getItem(SUPABASE_CONFIG.SESSION_STORAGE_KEY) || 'null');
+      return value?.access_token && value?.refresh_token ? value : null;
+    } catch (_) {
+      return null;
+    }
+  },
+
+  _limpiarSesion() {
+    this._sesion = null;
+    try { localStorage.removeItem(SUPABASE_CONFIG.SESSION_STORAGE_KEY); } catch (_) {}
+  },
+
+  async ingresar(email, password) {
+    const correo = String(email || '').trim().toLowerCase();
+    const clave = String(password || '');
+    if (!correo || !correo.includes('@')) return { ok: false, error: 'Ingrese un correo electrónico válido.' };
+    if (!clave) return { ok: false, error: 'Ingrese su contraseña.' };
+
+    const auth = await this.pedir('/auth/v1/token?grant_type=password', {
+      method: 'POST',
+      body: JSON.stringify({ email: correo, password: clave })
+    });
+
+    // Nunca revelar si falló el correo o la contraseña: evita enumerar cuentas.
+    if (!auth.ok) return { ok: false, error: 'Correo o contraseña incorrectos.', estado: auth.estado };
+    this._guardarSesion(auth.datos);
+
+    const sesion = await this.sesionActual();
+    if (!sesion.ok) {
+      await this.salir();
+      return { ok: false, error: sesion.error || 'La cuenta no posee acceso habilitado al WMS.' };
+    }
+
+    return {
+      ok: true,
+      sesion: sesion.datos,
+      usuario: this.usuarioInterfaz(sesion.datos)
     };
   },
 
-  /** Renueva el token antes de que caduque. */
-  async renovarSiHaceFalta() {
-    if (!this._sesion?.refresh_token) return { ok: false };
-    if (Date.now() < this._sesion.expira - 60000) return { ok: true, sinCambios: true };
-    const r = await this.pedir('/auth/v1/token?grant_type=refresh_token', {
-      method: 'POST',
-      body: JSON.stringify({ refresh_token: this._sesion.refresh_token })
-    });
-    if (r.ok) this._guardarSesion(r.datos);
-    else this._sesion = null;
-    return r;
+  /**
+   * Restaura una sesión al recargar la página. No confía sólo en localStorage:
+   * después de refrescar el token vuelve a consultar wms_sesion_actual(), que
+   * valida usuario, rol, email, vigencia y permisos en el servidor.
+   */
+  async restaurarSesion() {
+    if (!SUPABASE_CONFIG.listo()) return { ok: false, deshabilitado: true };
+    this._sesion = this._leerSesionGuardada();
+    if (!this._sesion) return { ok: false, sinSesion: true };
+
+    const renovada = await this.renovarSiHaceFalta();
+    if (!renovada.ok) {
+      this._limpiarSesion();
+      return { ok: false, sinSesion: true, error: 'La sesión ya no es válida.' };
+    }
+
+    const sesion = await this.sesionActual();
+    if (!sesion.ok) {
+      this._limpiarSesion();
+      return { ok: false, sinSesion: true, error: sesion.error };
+    }
+
+    return { ok: true, sesion: sesion.datos, usuario: this.usuarioInterfaz(sesion.datos) };
   },
 
-  /** El perfil trae rol y permisos DESDE LA BASE, no desde el navegador. */
-  async perfilActual() {
-    if (!this._sesion) return { ok: false, error: 'Sin sesión.' };
-    return this.listar('usuarios', { filtros: { select: '*' }, columnas: '*' });
+  async renovarSiHaceFalta() {
+    if (!this._sesion?.refresh_token) return { ok: false, sinSesion: true };
+    if (Date.now() < Number(this._sesion.expira || 0) - 60000) {
+      return { ok: true, sinCambios: true };
+    }
+
+    const control = new AbortController();
+    const reloj = setTimeout(() => control.abort(), SUPABASE_CONFIG.TIMEOUT_MS);
+    try {
+      const respuesta = await fetch(`${SUPABASE_CONFIG.URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_CONFIG.PUBLISHABLE_KEY,
+          Authorization: `Bearer ${SUPABASE_CONFIG.PUBLISHABLE_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ refresh_token: this._sesion.refresh_token }),
+        signal: control.signal
+      });
+      clearTimeout(reloj);
+      const cuerpo = await respuesta.text();
+      const datos = cuerpo ? this._json(cuerpo) : null;
+      if (!respuesta.ok || !datos?.access_token) {
+        this._limpiarSesion();
+        return { ok: false, estado: respuesta.status, error: 'La sesión expiró.' };
+      }
+      this._guardarSesion(datos);
+      return { ok: true };
+    } catch (_) {
+      clearTimeout(reloj);
+      return { ok: false, red: true, error: 'No fue posible renovar la sesión.' };
+    }
+  },
+
+  async sesionActual() {
+    if (!this._sesion?.access_token) return { ok: false, error: 'Sin sesión autenticada.' };
+    return this.rpc('auth', 'sesionActual');
+  },
+
+  /**
+   * Adaptador temporal hacia el shape que consume hoy AppController/UserModel.
+   * Es sólo presentación/caché. Los permisos autoritativos siguen en el backend.
+   */
+  usuarioInterfaz(sesion = {}) {
+    const u = sesion?.usuario || {};
+    const r = sesion?.rol || {};
+    const codigoRol = String(r.codigo || '').toUpperCase();
+    const accessLevel = codigoRol === 'ADMINISTRADOR'
+      ? 'ADMIN'
+      : codigoRol === 'JEFE_PLANTA' ? 'PLANT_MANAGER' : 'USER';
+    const role = codigoRol === 'GRUERO' ? 'Gruero' : (u.cargo || r.nombre || 'Usuario');
+
+    return {
+      id: u.usuario_id,
+      usuario_id: u.usuario_id,
+      email: u.email,
+      nombre: u.nombre,
+      apellido_paterno: u.apellido_paterno,
+      apellido_materno: u.apellido_materno,
+      name: u.nombre_completo || [u.nombre, u.apellido_paterno, u.apellido_materno].filter(Boolean).join(' '),
+      cargo: u.cargo,
+      area: u.area,
+      role,
+      rut: u.rut,
+      activo: u.activo !== false,
+      accessLevel,
+      admin: accessLevel === 'ADMIN',
+      backendRole: codigoRol,
+      backendRoleName: r.nombre,
+      permisos: Array.isArray(sesion?.permisos) ? sesion.permisos : [],
+      sesionBackend: sesion?.sesion || null
+    };
+  },
+
+  /** Recuperación estándar de Supabase Auth por correo. */
+  async recuperarPassword(email) {
+    const correo = String(email || '').trim().toLowerCase();
+    if (!correo || !correo.includes('@')) return { ok: false, error: 'Ingrese un correo electrónico válido.' };
+
+    const r = await this.pedir('/auth/v1/recover', {
+      method: 'POST',
+      body: JSON.stringify({ email: correo })
+    });
+
+    // Respuesta deliberadamente genérica para no confirmar si el correo existe.
+    if (!r.ok && r.red) return r;
+    return { ok: true };
   },
 
   async salir() {
-    if (this._sesion) await this.pedir('/auth/v1/logout', { method: 'POST' });
-    this._sesion = null;
+    if (this._sesion?.access_token && SUPABASE_CONFIG.listo()) {
+      try { await this.pedir('/auth/v1/logout', { method: 'POST' }); } catch (_) {}
+    }
+    this._limpiarSesion();
+    return { ok: true };
   },
 
   haySesion() { return Boolean(this._sesion?.access_token); },
 
-  /* ==================================================================
-     COMPROBACIÓN
-     ================================================================== */
+  /* ============================= TEST ============================== */
 
-  /** Verifica que el proyecto responde y que las políticas están puestas. */
   async probar() {
     if (!SUPABASE_CONFIG.listo()) return { ok: false, error: SUPABASE_CONFIG.diagnostico() };
-    const r = await this.listar('pallets', { columnas: 'id', limite: 1 });
-    if (r.ok) return { ok: true, mensaje: 'Conexión establecida y lectura permitida.' };
-    if (r.permiso) return { ok: true, mensaje: 'Conexión establecida; la base exige sesión (RLS activo, que es lo correcto).' };
-    return { ok: false, error: r.error };
+    if (!this.haySesion()) return { ok: true, mensaje: 'Proyecto configurado; falta una sesión autenticada para probar RLS/RPC.' };
+    const r = await this.sesionActual();
+    return r.ok
+      ? { ok: true, mensaje: 'Supabase Auth + sesión WMS + RBAC operativos.' }
+      : { ok: false, error: r.error };
   }
 };
