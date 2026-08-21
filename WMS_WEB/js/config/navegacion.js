@@ -7,10 +7,10 @@ const SECCIONES = [
   { id: 'movimientos', titulo: 'Movimientos de Cámara', categoria: 'Operaciones', icono: '🔄' },
   { id: 'despacho', titulo: 'Despacho y Reproceso', categoria: 'Operaciones', icono: '🚚' },
   { id: 'aprobaciones', titulo: 'Gestión de Aprobaciones', categoria: 'Operaciones', icono: '✅' },
-  // Bitácora y Verificaciones son registros operacionales, no vistas de Panel.
-  // Sus controladores se migrarán a RPC al abordar cada submenú de Operaciones.
-  { id: 'bitacora', titulo: 'Bitácora', categoria: 'Operaciones', icono: '📓' },
-  { id: 'registro_verificaciones', titulo: 'Registro de Verificaciones', categoria: 'Operaciones', icono: '🧪' },
+  // Registros operacionales remotos. `permiso` controla visibilidad de lectura;
+  // las acciones internas verifican sus permisos registrar/modificar/eliminar.
+  { id: 'bitacora', titulo: 'Bitácora', categoria: 'Operaciones', icono: '📓', permiso: 'bitacora.ver' },
+  { id: 'registro_verificaciones', titulo: 'Registro de Verificaciones', categoria: 'Operaciones', icono: '🧪', permiso: 'verificaciones.ver' },
   { id: 'centro_etiquetas', titulo: 'Centro de Etiquetas', categoria: 'Operaciones', icono: '🏷️' },
 
   { id: 'stock_planta', titulo: 'Stock en Planta', categoria: 'Stock y Lotes', icono: '📦' },
