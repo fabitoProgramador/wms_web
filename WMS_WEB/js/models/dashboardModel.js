@@ -217,10 +217,13 @@ const DashboardModel = {
     }
     if (codigo === 'CAMARA_MAYOR_OCUPACION') {
       const pct = this.numero(raw.porcentaje);
+      const pallets = this.numero(raw.pallets);
+      const capacidad = this.numero(raw.capacidad);
+      const disponibles = this.numero(raw.disponibles);
       return {
         tipo: pct >= 85 ? 'warning' : 'success',
-        titulo: `${raw.camara || 'Cámara'}: ${pct.toFixed(1)}% de posiciones utilizadas`,
-        detalle: `${this.numero(raw.utilizadas)} de ${this.numero(raw.capacidad)} posiciones físicas.`
+        titulo: `${raw.camara || 'Cámara'}: ${pct.toFixed(1)}% de capacidad de stock`,
+        detalle: `${pallets.toLocaleString('es-CL')} de ${capacidad.toLocaleString('es-CL')} pallets · ${disponibles.toLocaleString('es-CL')} disponibles.`
       };
     }
     if (codigo === 'SIN_INFORMACION' && this.numero(raw.pallets) > 0) {
@@ -242,9 +245,12 @@ const DashboardModel = {
 
     const resumen = raw?.resumen || {};
     const actividad = raw?.tendencias?.actividad || {};
-    const capacidad = raw?.capacidad || {};
-    const totalCapacidad = capacidad?.total || {};
+    const ocupacionStock = raw?.ocupacion_stock || {};
+    const totalStock = ocupacionStock?.total || {};
+    const capacidadMapa = raw?.capacidad || {};
+    const totalMapa = capacidadMapa?.total || {};
     const etapas = raw?.etapas || {};
+    const tendenciaOcupacion = raw?.tendencias?.ocupacion?.camaras || [];
 
     return {
       raw,
@@ -253,9 +259,35 @@ const DashboardModel = {
       stock: this.numero(resumen.pallets_actuales),
       cajas: this.numero(resumen.cajas_actuales),
       kilos: this.numero(resumen.kilos_actuales),
+
+      palletsStock: this.numero(resumen.pallets_stock_camaras ?? totalStock.pallets),
+      capacidadStock: this.numero(resumen.capacidad_stock_camaras ?? totalStock.capacidad),
+      ocupacionStock: this.numero(resumen.ocupacion_stock_porcentaje ?? totalStock.porcentaje),
+      disponiblesStock: this.numero(resumen.disponibles_stock ?? totalStock.disponibles),
+
       posicionados: this.numero(resumen.posiciones_utilizadas),
-      capacidadTotal: this.numero(resumen.capacidad_fisica ?? totalCapacidad.capacidad),
-      ocupacion: this.numero(resumen.ocupacion_fisica_porcentaje ?? totalCapacidad.porcentaje),
+      capacidadMapa: this.numero(resumen.capacidad_fisica ?? totalMapa.capacidad),
+      ocupacionMapa: this.numero(resumen.ocupacion_fisica_porcentaje ?? totalMapa.porcentaje),
+
+      // Alias transitorios para no romper consumidores todavía no auditados.
+      capacidadTotal: this.numero(resumen.capacidad_fisica ?? totalMapa.capacidad),
+      ocupacion: this.numero(resumen.ocupacion_fisica_porcentaje ?? totalMapa.porcentaje),
+
+      tendenciaOcupacion: tendenciaOcupacion.map(serie => ({
+        nombre: serie.camara || '—',
+        puntos: (serie.puntos || []).map(row => ({
+          fecha: String(row.capturado_en || ''),
+          valor: this.numero(row.ocupacion_porcentaje),
+          pallets: this.numero(row.pallets),
+          cajas: this.numero(row.cajas),
+          kilos: this.numero(row.kilos),
+          deltaPallets: row.delta_pallets == null ? null : this.numero(row.delta_pallets),
+          deltaOcupacion: row.delta_ocupacion_pp == null ? null : this.numero(row.delta_ocupacion_pp)
+        }))
+      })),
+
+      // Fecha de recepción SAP queda disponible como contexto histórico, pero
+      // no se usa para representar movimiento/ocupación de cámara.
       ingresos: (raw?.tendencias?.ingresos || []).map(row => ({
         fecha: String(row.fecha || ''),
         valor: this.numero(row.pallets)
@@ -277,11 +309,22 @@ const DashboardModel = {
         pallets: this.numero(row.pallets),
         kilos: this.numero(row.kilos)
       })),
-      camaras: (capacidad?.camaras || []).map(row => ({
+      camarasStock: (ocupacionStock?.camaras || []).map(row => ({
+        nombre: row.camara || '—',
+        pallets: this.numero(row.pallets),
+        cajas: this.numero(row.cajas),
+        kilos: this.numero(row.kilos),
+        capacidad: this.numero(row.capacidad),
+        porcentaje: this.numero(row.porcentaje),
+        disponibles: this.numero(row.disponibles),
+        sobreCapacidad: Boolean(row.sobre_capacidad)
+      })),
+      camarasMapa: (capacidadMapa?.camaras || []).map(row => ({
         nombre: row.camara || '—',
         posicionados: this.numero(row.utilizadas),
         capacidad: this.numero(row.capacidad),
-        porcentaje: this.numero(row.porcentaje)
+        porcentaje: this.numero(row.porcentaje),
+        sobreCapacidad: Boolean(row.sobre_capacidad)
       })),
       flujo: [
         { nombre: 'Sin información', valor: this.numero(etapas.sin_informacion) },
