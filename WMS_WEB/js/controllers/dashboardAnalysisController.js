@@ -15,7 +15,7 @@
     try {
       const a = await DashboardModel.analisis(this.analysisFilters);
       const periodoTexto = ({ HOY:'Hoy','7D':'Últimos 7 días','30D':'Últimos 30 días','90D':'Últimos 90 días',TODO:'Todo el registro' })[a.periodo] || a.periodo;
-      const options = a.almacenesDisponibles.map(x => `<option value="${this.escape(x.valor)}">${this.escape(x.esAlcanceFisico ? x.nombre : `${x.nombre}${x.whscode ? ` · ${x.whscode}` : ''}`)}</option>`).join('');
+      const options = a.almacenesDisponibles.map(x => `<option value="${this.escape(x.valor)}">${this.escape(x.esAlcanceFisico ? `Todos · ${x.nombre}` : `${x.nombre}${x.whscode ? ` · ${x.whscode}` : ''}`)}</option>`).join('');
       const flujo = `↗ ${a.movimientosStock.entradas.toLocaleString('es-CL')} / ↘ ${a.movimientosStock.salidas.toLocaleString('es-CL')}`;
       const summary3 = a.tieneCapacidad
         ? this.analysisSummary('Ocupación de stock', `${Number(a.ocupacionStock || 0).toFixed(1)}%`, `${a.palletsStock.toLocaleString('es-CL')} de ${Number(a.capacidadStock || 0).toLocaleString('es-CL')} pallets · ${Number(a.disponiblesStock || 0).toLocaleString('es-CL')} disponibles`, Number(a.ocupacionStock || 0) >= 85 ? 'risk' : 'capacity')
