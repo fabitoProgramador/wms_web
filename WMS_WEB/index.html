@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="css/gruero.css">
   <link rel="stylesheet" href="css/inventory-operation.css">
   <link rel="stylesheet" href="css/operaciones.css">
+  <link rel="stylesheet" href="css/operaciones-backend.css">
   <link rel="stylesheet" href="css/stock.css">
   <link rel="stylesheet" href="css/labels.css">
   <link rel="stylesheet" href="css/reportes.css">
@@ -63,7 +64,10 @@
   <script src="js/models/dashboardAnalysisModel.js"></script>
   <script src="js/models/dashboardMonitorModel.js"></script>
 
+  <!-- OperacionesModel queda temporalmente para consumidores legacy.
+       Las tres vistas de Operaciones usan exclusivamente OperacionesBackendModel. -->
   <script src="js/models/operacionesModel.js"></script>
+  <script src="js/models/operacionesBackendModel.js"></script>
   <!-- StockModel se mantiene sólo mientras módulos legacy restantes todavía lo consuman. -->
   <script src="js/models/stockModel.js"></script>
   <script src="js/models/stockPlantaModel.js"></script>
@@ -104,6 +108,7 @@
   <script src="js/controllers/labelController.js"></script>
   <script src="js/controllers/andenController.js"></script>
   <script src="js/controllers/operacionesController.js"></script>
+  <script src="js/controllers/operacionesBackendController.js"></script>
   <script src="js/controllers/reportesController.js"></script>
   <script src="js/controllers/bitacoraOperativaController.js"></script>
   <script src="js/controllers/verificacionesController.js"></script>
