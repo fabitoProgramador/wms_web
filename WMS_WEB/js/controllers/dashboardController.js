@@ -7,6 +7,7 @@ const DashboardController = {
   userSelectedState: null,
   stateSearch: '',
   stateSearchTimer: null,
+  stateDetailRequestId: 0,
   resumenContainer: null,
   resumenActual: null,
   resumenClockTimer: null,
@@ -24,6 +25,7 @@ const DashboardController = {
     this.defaultDetailState = null;
     this.userSelectedState = null;
     this.stateSearch = '';
+    this.stateDetailRequestId += 1;
     return this.renderResumen(container);
   },
 
@@ -69,11 +71,11 @@ const DashboardController = {
   },
 
   sparkline(data, color = '#10b981') {
-    if (!data.length) return this.empty('Sin ingresos registrados en el período');
+    if (!data.length) return this.empty('Sin ingresos registrados en el histórico');
     const max = Math.max(...data.map(x => x.valor), 1), min = Math.min(...data.map(x => x.valor));
     const values = data.map((x, i) => ({ x: data.length === 1 ? 50 : i / (data.length - 1) * 100, y: 34 - ((x.valor - min) / Math.max(1, max - min)) * 26 }));
     const points = values.map(p => `${p.x},${p.y}`).join(' '), last = values.at(-1), area = `0,38 ${points} 100,38`;
-    return `<svg class="sparkline" viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Ingresos registrados"><defs><linearGradient id="capacitySparkFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".34"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><line class="sparkline-grid" x1="0" y1="38" x2="100" y2="38"/><polygon points="${area}" fill="url(#capacitySparkFill)"/><polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" vector-effect="non-scaling-stroke"/><circle cx="${last.x}" cy="${last.y}" r="2.6" fill="${color}" vector-effect="non-scaling-stroke"/></svg>`;
+    return `<svg class="sparkline" viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="Recepciones SAP históricas"><defs><linearGradient id="capacitySparkFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".34"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs><line class="sparkline-grid" x1="0" y1="38" x2="100" y2="38"/><polygon points="${area}" fill="url(#capacitySparkFill)"/><polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" vector-effect="non-scaling-stroke"/><circle cx="${last.x}" cy="${last.y}" r="2.6" fill="${color}" vector-effect="non-scaling-stroke"/></svg>`;
   },
 
   bars(items, colors = [], horizontal = false) {
@@ -115,17 +117,16 @@ const DashboardController = {
       }
 
       const detailState = this.detailState();
-      const first = r.tendencia[0]?.valor || 0, last = r.tendencia.at(-1)?.valor || 0;
-      const variation = first ? Math.round((last - first) / first * 100) : 0;
       const capacidad = r.capacidad || 0;
       const disponibles = r.disponibles == null ? '—' : r.disponibles.toLocaleString('es-CL');
+      const periodosHistoricos = r.tendencia.length;
 
       container.innerHTML = `<section class="panel-control-view">
         ${this.operationalHeader()}
         <article class="capacity-hero panel-surface">
           <div class="capacity-ring" style="--pct:${r.ocupacion.toFixed(1)}"><div><strong>${r.ocupacion.toFixed(1)}%</strong></div></div>
           <div class="capacity-main"><h2>${r.stock.toLocaleString('es-CL')} <small>/ ${capacidad ? capacidad.toLocaleString('es-CL') : '—'} PLT</small></h2><p class="capacity-chamber">CÁMARA ${this.escape(r.camara || 'PROTER')}</p><div class="capacity-stats"><div><i>📦</i><span><em class="rot-largo">Cajas en cámara</em><em class="rot-corto">Cajas</em></span><b>${r.cajas.toLocaleString('es-CL')}</b></div><div><i>🟩</i><span><em class="rot-largo">Disponibles</em><em class="rot-corto">Disponibles</em></span><b>${disponibles}</b></div><div><i>❄️</i><span><em class="rot-largo">Cámaras activas</em><em class="rot-corto">Cámaras</em></span><b>${r.camaras}</b></div></div></div>
-          <div class="capacity-trend"><div class="capacity-trend-meta"><span>INGRESOS REGISTRADOS</span><b class="${variation < 0 ? 'negative' : ''}">${variation >= 0 ? '↗' : '↘'} ${Math.abs(variation)}%</b><small>Últimos registros del período</small></div>${this.sparkline(r.tendencia, variation < 0 ? '#ef4444' : '#10b981')}</div>
+          <div class="capacity-trend"><div class="capacity-trend-meta"><span>RECEPCIONES SAP</span><b>${periodosHistoricos ? `${periodosHistoricos} período${periodosHistoricos === 1 ? '' : 's'}` : '—'}</b><small>Histórico mensual del stock actual</small></div>${this.sparkline(r.tendencia)}</div>
         </article>
         <div class="state-kpi-grid" aria-label="Estados operacionales">${r.porEstado.map(x => this.kpiCard(x)).join('')}</div>
         <div id="dashboardStateDetail">${detailState ? this.stateDetailShell(detailState) : ''}</div>
@@ -154,6 +155,7 @@ const DashboardController = {
     this.userSelectedState = same ? null : state;
     this.stateSearch = '';
     clearTimeout(this.stateSearchTimer);
+    this.stateDetailRequestId += 1;
     if (!this.resumenContainer) return;
 
     const detail = this.resumenContainer.querySelector('#dashboardStateDetail');
@@ -193,6 +195,7 @@ const DashboardController = {
       this.defaultDetailState = null;
       this.stateSearch = '';
       clearTimeout(this.stateSearchTimer);
+      this.stateDetailRequestId += 1;
       detail.innerHTML = '';
       this.resumenContainer?.querySelectorAll('.state-kpi').forEach(card => {
         card.classList.remove('active');
@@ -214,15 +217,18 @@ const DashboardController = {
     if (!detail) return;
     const list = detail.querySelector('.state-pallet-list');
     const count = detail.querySelector('#stateDetailCount');
+    const busqueda = this.stateSearch;
+    const requestId = ++this.stateDetailRequestId;
     if (list) list.innerHTML = this.loading('Consultando detalle en Supabase…');
 
     try {
-      const result = await DashboardModel.estadoDetalle(state, { busqueda: this.stateSearch, limite: 200, offset: 0 });
-      if (state !== this.detailState()) return;
-      if (count) count.textContent = `${result.total} resultado${result.total === 1 ? '' : 's'}${result.total > result.items.length ? ` · mostrando ${result.items.length}` : ''}`;
+      const result = await DashboardModel.estadoDetalle(state, { busqueda, limite: 200, offset: 0 });
+      if (requestId !== this.stateDetailRequestId || state !== this.detailState() || busqueda !== this.stateSearch) return;
+      if (count) count.textContent = `${result.total} resultado${result.total === 1 ? '' : 's'}`;
       if (list) list.innerHTML = this.stateRows(result.items);
       this.bindStateMapLinks(detail);
     } catch (error) {
+      if (requestId !== this.stateDetailRequestId) return;
       if (count) count.textContent = 'Error de consulta';
       if (list) list.innerHTML = this.empty(error?.message || 'No fue posible consultar el detalle.');
     }
@@ -236,7 +242,8 @@ const DashboardController = {
         ? `${p.camara} · Banda ${p.banda ?? '—'} · P${p.posicion ?? '—'} · ${p.altura || '—'}`
         : `${p.whsname || p.whscode || '—'} · ${p.ubicacionEstado === 'UBICACION_AMBIGUA' ? 'Ubicación ambigua' : 'Sin posición WMS'}`;
       const mapTitle = positioned ? 'Se habilitará con la migración del módulo Mapa' : 'Sin posición única en el mapa WMS';
-      return `<article class="state-pallet-row"><span class="state-pallet-code">${this.escape(p.codigoVisual || p.idLote)}</span><div class="state-pallet-main"><b>${this.escape(p.idLote)}</b><span>${this.escape(p.itemcode || '—')} · ${this.escape(p.itemname || 'Sin descripción')}</span></div><div class="state-pallet-location"><b>${this.escape(location)}</b><span>${p.cajas.toLocaleString('es-CL')} cajas · ${p.kilos.toLocaleString('es-CL')} kg</span></div><button type="button" class="state-map-link" data-id-lote="${this.escape(p.idLote)}" data-camara="${this.escape(p.camara || '')}" disabled title="${this.escape(mapTitle)}">${positioned ? 'Ubicar en mapa' : 'Sin posición'}</button></article>`;
+      const estado = p.estadoWms || p.estadoOperativo || p.estadoSap || '';
+      return `<article class="state-pallet-row"><span class="state-pallet-code">${this.escape(p.codigoVisual || p.itemcode || p.idLote)}</span><div class="state-pallet-main"><b>${this.escape(p.idLote)}</b><span>${this.escape(p.itemcode || '—')} · ${this.escape(p.itemname || 'Sin descripción')}</span></div><div class="state-pallet-location"><b>${this.escape(location)}</b><span>${p.cajas.toLocaleString('es-CL')} cajas · ${p.kilos.toLocaleString('es-CL')} kg${estado ? ` · ${this.escape(estado)}` : ''}</span></div><button type="button" class="state-map-link" data-id-lote="${this.escape(p.idLote)}" data-camara="${this.escape(p.camara || '')}" disabled title="${this.escape(mapTitle)}">${positioned ? 'Ubicar en mapa' : 'Sin posición'}</button></article>`;
     }).join('');
   },
 
