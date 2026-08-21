@@ -25,7 +25,6 @@
 </head>
 <body>
 
-  <!-- Contenedor Raíz Dinámico -->
   <div id="appRoot"></div>
 
   <!-- Configuración de la Aplicación -->
@@ -37,11 +36,6 @@
   <script src="js/config/mapaConfig.js"></script>
   <script src="js/config/destinosAnden.js"></script>
   <script src="js/config/navegacion.js"></script>
-
-  <!--
-    Backend autoritativo del WMS. Supabase es la única fuente de identidad,
-    permisos y datos operacionales para los módulos que se vayan migrando.
-  -->
   <script src="js/config/supabaseConfig.js"></script>
 
   <!-- Servicios Transversales -->
@@ -61,20 +55,16 @@
   <script src="js/services/grueroCodeResolver.js"></script>
   <script src="js/services/mapaOfflineService.js"></script>
 
-  <!--
-    PanelControlModel conserva temporalmente sólo contratos legacy de Bitácora
-    y Verificaciones hasta que esos módulos sean migrados. El Panel ya separa
-    sus submenús remotos en modelos de Resumen, Análisis y Monitor.
-  -->
   <script src="js/models/panelControlModel.js"></script>
   <script src="js/models/dashboardModel.js"></script>
   <script src="js/models/dashboardAnalysisModel.js"></script>
   <script src="js/models/dashboardMonitorModel.js"></script>
 
   <script src="js/models/operacionesModel.js"></script>
-  <!-- StockModel permanece temporalmente sólo para Lote Detallado legacy. -->
+  <!-- StockModel se mantiene sólo mientras se verifica que ningún módulo legacy restante lo consuma. -->
   <script src="js/models/stockModel.js"></script>
   <script src="js/models/stockPlantaModel.js"></script>
+  <script src="js/models/loteDetalladoModel.js"></script>
   <script src="js/models/labelHistoryModel.js"></script>
   <script src="js/models/inventoryOperationModel.js"></script>
   <script src="js/services/inventoryOperationService.js"></script>
@@ -104,6 +94,7 @@
   <script src="js/controllers/grueroController.js"></script>
   <script src="js/controllers/inventoryOperationController.js"></script>
   <script src="js/controllers/stockPlantaController.js"></script>
+  <script src="js/controllers/loteDetalladoController.js"></script>
   <script src="js/controllers/stockController.js"></script>
   <script src="js/controllers/labelController.js"></script>
   <script src="js/controllers/andenController.js"></script>
@@ -113,13 +104,8 @@
   <script src="js/controllers/userAdminController.js"></script>
   <script src="js/controllers/appController.js"></script>
 
-  <!-- Inicialización de la Aplicación -->
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
-      /*
-       * Antes de montar la UI se restaura/valida la sesión contra Supabase.
-       * Sin una sesión Auth + WMS válida, AppController sólo puede mostrar Login.
-       */
       await BackendBootstrapService.prepararInicio();
       BackendBootstrapService.instalarHooks();
       AppController.init();
