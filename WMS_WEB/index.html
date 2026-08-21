@@ -77,7 +77,10 @@
   <script src="js/models/labelHistoryModel.js"></script>
   <script src="js/models/inventoryOperationModel.js"></script>
   <script src="js/services/inventoryOperationService.js"></script>
+  <!-- ReportesModel conserva temporalmente Generar Reporte legacy;
+       Visualizar Stock usa exclusivamente ReportesStockModel. -->
   <script src="js/models/reportesModel.js"></script>
+  <script src="js/models/reportesStockModel.js"></script>
   <script src="js/services/labelFormatService.js"></script>
   <script src="js/services/zebraPrintService.js"></script>
   <script src="js/services/labelService.js"></script>
@@ -110,18 +113,21 @@
   <script src="js/controllers/operacionesController.js"></script>
   <script src="js/controllers/operacionesBackendController.js"></script>
   <script src="js/controllers/reportesController.js"></script>
+  <script src="js/controllers/reportesStockController.js"></script>
   <script src="js/controllers/bitacoraOperativaController.js"></script>
   <script src="js/controllers/verificacionesController.js"></script>
   <script src="js/controllers/bitacoraController.js"></script>
   <script src="js/controllers/userAdminController.js"></script>
   <script src="js/controllers/appController.js"></script>
   <script src="js/services/operacionesBackendBridge.js"></script>
+  <script src="js/services/reportesStockBridge.js"></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       await BackendBootstrapService.prepararInicio();
       BackendBootstrapService.instalarHooks();
       OperacionesBackendBridge.install();
+      ReportesStockBridge.install();
       NavigationPermissionService.install(AppController);
       AppController.init();
     });
