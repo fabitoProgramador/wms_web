@@ -67,7 +67,7 @@ Fuente única:
 
 - `public.wms_dashboard_resumen(p_almacen_codigo)`
 - `public.wms_dashboard_estado_detalle(...)`
-- `public.wms_analisis_operacional('PROTER','TODO')` únicamente para la serie histórica de recepciones SAP mostrada en la tarjeta superior.
+- `public.wms_dashboard_ocupacion_tendencia(p_almacen,p_limite)`
 
 Reglas y validaciones aplicadas:
 
@@ -84,27 +84,88 @@ Reglas y validaciones aplicadas:
 - El detalle muestra ID lote, artículo, descripción, almacén/posición WMS, cajas, kilos y estado operacional disponible.
 - `Ubicar en mapa` permanece deshabilitado hasta que Mapa sea migrado; Resumen no consulta `MapaModel` ni localStorage como sustituto.
 - El catálogo `Articulos_Codigo` actualmente está vacío; por eso `codigo_visual` puede ser nulo. La vista utiliza `ItemCode`/`id_lote` como fallback sin inventar letras en JavaScript. El catálogo se resolverá en la fase correspondiente.
-- La tarjeta de recepciones ya no muestra un porcentaje de “tendencia” deducido de un snapshot. Presenta el histórico mensual real de fecha de recepción SAP, evitando una métrica engañosa.
 - Los RPC requieren rol `authenticated` y el permiso backend `stock.ver`.
 - No se modificó CSS.
 
-Datos de validación del snapshot cargado:
+#### Tendencia de ocupación
 
-- `Lotes_en_Stock`: 1.064 filas exactas del Excel fuente.
-- 1.062 `id_lote` lógicos / 1.062 instancias WMS activas.
-- PROTER (`CAM302`): 430 pallets, 28.346,017 cajas, 308.922,81 kg, capacidad 508, ocupación 84,6% y 78 disponibles.
-- KPI actuales PROTER: 350 bloqueados y 80 liberados; los demás parten en cero hasta que existan estados/procesos WMS correspondientes.
-- El hash de las 28 columnas del snapshot coincide exactamente con `stock.xlsx`.
+La tendencia mide **cambio neto real de stock de cámara entre sincronizaciones SAP**, no fecha de recepción del producto.
+
+Se creó `wms_private.stock_ocupacion_snapshots`, que guarda únicamente una fotografía agregada por cámara:
+
+- pallets;
+- cajas;
+- kilos;
+- capacidad;
+- porcentaje de ocupación;
+- fecha de captura y fecha del snapshot SAP.
+
+`wms_private.capturar_stock_ocupacion_snapshot()` se ejecuta al finalizar `wms_sincronizar_padre(...)`. Si el saldo no cambió, no crea un punto duplicado. Si cambia, el siguiente punto calcula delta de pallets, cajas, kilos y puntos porcentuales de ocupación.
+
+Esto permite representar correctamente entradas hacia PROTER y salidas desde PROTER sin modificar ni duplicar el detalle de `Lotes_en_Stock`.
+
+La primera fotografía real es el baseline actual. No se inventó un histórico anterior porque el snapshot SAP actual no permite reconstruir de manera fiable a qué hora ocurrió cada entrada/salida pasada.
+
+Prueba transaccional validada: mover temporalmente un pallet de PROTER a Andén produjo `-1 pallet`, `-8 cajas`, `-80 kg` y `-0,20 pp`; la transacción se revirtió después de comprobar el cálculo.
+
+Datos baseline:
+
+- PROTER: 430/508 pallets, 84,65%.
+- POST TÚNEL: 343/356 pallets, 96,35%.
 
 ### 02.2 — Análisis Operacional
 
-Estado: **conectado al backend, pendiente de auditoría funcional submenú por submenú**.
+Estado: **cerrado contra backend**.
 
-Contrato previsto:
+Contrato:
 
 - `public.wms_analisis_operacional(p_almacen,p_periodo)`
 
-No se marca cerrado hasta revisar individualmente filtros, gráficos, cálculos, estados vacíos, permisos y semántica de cada indicador.
+Filtros validados:
+
+- Cámara: `TODOS`, `PROTER`, `POST TUNEL`.
+- Período: `HOY`, `7D`, `30D`, `90D`, `TODO`.
+- `TODOS` significa **PROTER + POST TÚNEL**, no todos los almacenes SAP. Patio, Andén, despacho virtual u otras ubicaciones no se mezclan con la capacidad física de las cámaras.
+- El período afecta tendencia/actividad histórica; stock, distribución y capacidad representan el estado actual del alcance seleccionado.
+
+Lecturas separadas:
+
+1. **Ocupación de stock SAP**: pallets presentes en cámara / capacidad configurada.
+2. **Ocupación del Mapa WMS**: posiciones físicas registradas en `Posiciones_Mapa` / capacidad del mapa.
+
+Estas métricas no se mezclan. Un mapa todavía vacío puede marcar 0 posiciones WMS sin convertir falsamente el stock SAP en 0% de ocupación.
+
+Datos actuales validados:
+
+- PROTER: 430/508 = 84,6%, 78 disponibles.
+- POST TÚNEL: 343/356 = 96,3%, 13 disponibles.
+- Ambas cámaras: 773/864 = 89,5%, 91 disponibles.
+- El universo combinado contiene 773 `id_lote` únicos en las dos cámaras en este snapshot.
+- `Posiciones_Mapa` todavía no tiene posiciones para este stock, por lo que la ocupación de mapa permanece 0% y se muestra como capa independiente.
+
+La vista muestra:
+
+- pallets actuales;
+- cajas actuales;
+- ocupación de stock;
+- posiciones WMS;
+- tendencia de ocupación por cámara a partir de snapshots;
+- actividad de verificaciones/rechazos/despachos del período;
+- distribución por estado;
+- Top 5 productos por cajas;
+- capacidad de stock por cámara;
+- capacidad total de stock;
+- posiciones registradas en Mapa WMS;
+- lectura operacional por etapas;
+- insights calculados por backend.
+
+`Despachados` cuenta pallets pertenecientes a despachos `CERRADO` según `fecha_operacional` y utiliza el almacén snapshot del despacho. No se infiere un despacho por la desaparición de un pallet del padre SAP.
+
+Las barras con valor cero ya no dibujan un ancho mínimo artificial. Los insights de “cámara con mayor ocupación” utilizan ocupación de stock SAP, no el mapa WMS vacío.
+
+Se validó el RPC con la sesión Auth/RBAC real del usuario administrador, además de sus cálculos internos. `wms_analisis_operacional` y `wms_dashboard_ocupacion_tendencia` no tienen ejecución para `anon`.
+
+No se modificó CSS.
 
 ### 02.3 — Monitor en Tiempo Real
 
@@ -120,7 +181,7 @@ No se marca cerrado hasta revisar filtros, actualización periódica, eventos, a
 ### Limpieza frontend del Panel
 
 - `js/models/dashboardModel.js` es el adaptador remoto del Panel.
-- Resumen Ejecutivo no consulta `MapaModel`, `OperacionesModel`, verificaciones locales ni almacenamiento local para obtener información operacional.
+- Resumen Ejecutivo y Análisis Operacional no consultan `MapaModel`, `OperacionesModel`, verificaciones locales ni almacenamiento local para obtener información operacional.
 - `PanelControlModel` continúa cargado **temporalmente** sólo porque Bitácora y Registro de Verificaciones todavía conservan lógica legacy hasta su migración.
 - Bitácora y Registro de Verificaciones ya fueron movidos en navegación desde `Panel de Control` a `Operaciones`.
 - No se modificó el CSS del Panel.
@@ -140,8 +201,8 @@ Para probar una versión completa: seleccionar `WMS_WEB` en GitHub → **Code �
 1. Login / sesión — completado.
 2. Panel de Control:
    - Resumen Ejecutivo — completado.
-   - Análisis Operacional — siguiente auditoría.
-   - Monitor en Tiempo Real — pendiente posterior.
+   - Análisis Operacional — completado.
+   - Monitor en Tiempo Real — siguiente auditoría.
 3. Stock Planta y Lote Detallado.
 4. Mapa / Gruero.
 5. Operaciones / Movimientos / Despacho / Aprobaciones / Bitácora / Verificaciones.
