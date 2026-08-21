@@ -100,6 +100,8 @@ const VerificacionesModel = {
    * Cada fila debe identificar un pallet real. La primera puede reutilizar el
    * código principal; si hay varias filas, las adicionales exigen su propio
    * ID/código para no adivinar identidades a partir de un número de pallet.
+   * La regla de artículo común se valida exclusivamente en PostgreSQL usando
+   * wms_private.articulo_base(), evitando duplicar lógica de negocio aquí.
    */
   async prepararDetalles(codigoPrincipal, rows = []) {
     const limpios = (rows || []).map(row => ({
@@ -128,9 +130,6 @@ const VerificacionesModel = {
         whsname: pallet.whsname
       });
     }
-
-    const articulos = new Set(resolved.map(x => String(x.itemcode || '').trim()).filter(Boolean));
-    if (articulos.size > 1) throw new Error('Todos los pallets del registro deben corresponder al mismo artículo.');
     return resolved;
   },
 
