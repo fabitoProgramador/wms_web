@@ -1,6 +1,6 @@
 /**
- * Generar Reporte remoto.
- * El backend compila criterios, estados, totales y vista previa; el frontend sólo presenta.
+ * Fachada de Reportes Operacionales.
+ * Generar Reporte se compila aquí; Visualizar Stock vive en su controlador especializado.
  */
 const ReportesController = {
   container:null,
@@ -13,6 +13,10 @@ const ReportesController = {
   esc(v){return SeguridadService.escaparHtml(v);},
   fmt(v){return Number(v||0).toLocaleString('es-CL');},
   toast(text,type='success'){return NotificationService.show(text,{type});},
+
+  initVisualizarStock(container){
+    return ReportesStockController.init(container);
+  },
 
   badge(value,type='state'){
     const text=String(value||'—');let color='#64748b';
