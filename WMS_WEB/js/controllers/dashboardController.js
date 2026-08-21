@@ -81,7 +81,11 @@ const DashboardController = {
   bars(items, colors = [], horizontal = false) {
     if (!items.length) return this.empty('No hay datos disponibles');
     const max = Math.max(...items.map(x => x.valor), 1);
-    return `<div class="chart-bars ${horizontal ? 'horizontal' : ''}">${items.map((x, i) => `<div class="chart-bar-item"><div class="chart-value">${Number(x.valor || 0).toLocaleString('es-CL')}</div><div class="chart-bar-track"><span style="${horizontal ? 'width' : 'height'}:${Math.max(3, Number(x.valor || 0) / max * 100)}%;background:${colors[i] || '#10b981'}"></span></div><div class="chart-label" title="${this.escape(x.nombre)}">${this.escape(x.nombre)}</div></div>`).join('')}</div>`;
+    return `<div class="chart-bars ${horizontal ? 'horizontal' : ''}">${items.map((x, i) => {
+      const valor = Number(x.valor || 0);
+      const pct = valor > 0 ? Math.max(3, valor / max * 100) : 0;
+      return `<div class="chart-bar-item"><div class="chart-value">${valor.toLocaleString('es-CL')}</div><div class="chart-bar-track"><span style="${horizontal ? 'width' : 'height'}:${pct}%;background:${colors[i] || '#10b981'}"></span></div><div class="chart-label" title="${this.escape(x.nombre)}">${this.escape(x.nombre)}</div></div>`;
+    }).join('')}</div>`;
   },
 
   donut(items) {
@@ -267,26 +271,29 @@ const DashboardController = {
     try {
       const a = await DashboardModel.analisis(this.analysisFilters);
       const periodoTexto = ({ HOY: 'Hoy', '7D': 'Últimos 7 días', '30D': 'Últimos 30 días', '90D': 'Últimos 90 días', TODO: 'Todo el registro' })[a.periodo] || a.periodo;
-      const actividadDetalle = `${periodoTexto} · registros WMS del backend`;
+      const actividadDetalle = `${periodoTexto} · eventos WMS cerrados/registrados`;
+      const alcanceTexto = a.camara === 'TODOS' ? 'PROTER + POST TÚNEL' : a.camara;
+      const mapaDetalle = `${a.posicionados.toLocaleString('es-CL')} de ${a.capacidadMapa.toLocaleString('es-CL')} posiciones · ${a.ocupacionMapa.toFixed(1)}%`;
 
       container.innerHTML = `<section class="panel-control-view">
-        ${this.operationalHeader({ eyebrow: 'ANÁLISIS DE LA OPERACIÓN', title: 'Análisis Operacional', status: 'Tendencias y capacidad en línea' })}
-        <section class="analysis-toolbar panel-surface" aria-label="Filtros de análisis"><div><span>ALCANCE ANALÍTICO</span><b>Datos actuales y registros operacionales</b></div><label><span>Almacén</span><select id="analysisWarehouse"><option value="TODOS">Todos</option><option value="PROTER">Proter</option><option value="POST TUNEL">Post Túnel</option></select></label><label><span>Período de registros</span><select id="analysisPeriod"><option value="HOY">Hoy</option><option value="7D">7 días</option><option value="30D">30 días</option><option value="90D">90 días</option><option value="TODO">Todo</option></select></label></section>
+        ${this.operationalHeader({ eyebrow: 'ANÁLISIS DE LA OPERACIÓN', title: 'Análisis Operacional', status: 'Stock, tendencia y actividad desde Supabase' })}
+        <section class="analysis-toolbar panel-surface" aria-label="Filtros de análisis"><div><span>ALCANCE ANALÍTICO</span><b>Stock actual + actividad del período seleccionado</b></div><label><span>Cámara</span><select id="analysisWarehouse"><option value="TODOS">PROTER + Post Túnel</option><option value="PROTER">Proter</option><option value="POST TUNEL">Post Túnel</option></select></label><label><span>Período de actividad</span><select id="analysisPeriod"><option value="HOY">Hoy</option><option value="7D">7 días</option><option value="30D">30 días</option><option value="90D">90 días</option><option value="TODO">Todo</option></select></label></section>
         <div class="analysis-summary" aria-label="Resumen analítico">
-          ${this.analysisSummary('Pallets actuales', a.stock, a.camara === 'TODOS' ? 'Ambos almacenes' : a.camara, 'stock')}
-          ${this.analysisSummary('Cajas actuales', a.cajas.toLocaleString('es-CL'), 'Fuente única de stock', 'boxes')}
-          ${this.analysisSummary('Posiciones utilizadas', a.posicionados, `${a.capacidadTotal.toLocaleString('es-CL')} posiciones físicas`, 'slots')}
-          ${this.analysisSummary('Ocupación física', `${a.ocupacion.toFixed(1)}%`, 'Posiciones WMS ocupadas', a.ocupacion >= 85 ? 'risk' : 'capacity')}
+          ${this.analysisSummary('Pallets actuales', a.stock.toLocaleString('es-CL'), alcanceTexto, 'stock')}
+          ${this.analysisSummary('Cajas actuales', a.cajas.toLocaleString('es-CL'), 'Saldo SAP de las cámaras', 'boxes')}
+          ${this.analysisSummary('Ocupación de stock', `${a.ocupacionStock.toFixed(1)}%`, `${a.palletsStock.toLocaleString('es-CL')} de ${a.capacidadStock.toLocaleString('es-CL')} pallets · ${a.disponiblesStock.toLocaleString('es-CL')} disponibles`, a.ocupacionStock >= 85 ? 'risk' : 'capacity')}
+          ${this.analysisSummary('Posiciones WMS', a.posicionados.toLocaleString('es-CL'), mapaDetalle, 'slots')}
         </div>
         <h2 class="group-title">Tendencias</h2><div class="analysis-grid">
-          ${this.chartCard('Ingresos registrados', `${periodoTexto} · fecha de recepción SAP`, this.lineChart(a.ingresos))}
+          ${this.chartCard('Tendencia de ocupación', `${periodoTexto} · snapshots de stock por cámara`, this.occupancyTrendChart(a.tendenciaOcupacion))}
           ${this.chartCard('Actividad registrada', actividadDetalle, this.bars(a.actividad, ['#10b981','#ef4444','#06b6d4']))}
         </div><h2 class="group-title">Distribución</h2><div class="analysis-grid">
-          ${this.chartCard('Distribución por Estado', 'Participación sobre pallets del alcance', this.donut(a.distribucion))}
-          ${this.chartCard('Top 5 Productos', 'Artículos con más cajas en el stock actual', this.bars(a.topProductos, [], true))}
+          ${this.chartCard('Distribución por Estado', 'Participación sobre pallets del alcance actual', this.donut(a.distribucion))}
+          ${this.chartCard('Top 5 Productos', 'Artículos con más cajas dentro del alcance actual', this.bars(a.topProductos, [], true))}
         </div><h2 class="group-title">Capacidad</h2><div class="analysis-grid">
-          ${this.chartCard('Ocupación física por Cámara', 'Posiciones utilizadas sobre la configuración real del mapa', this.capacityBars(a.camaras))}
-          ${this.chartCard('Capacidad física utilizada', `${a.posicionados} de ${a.capacidadTotal} posiciones`, `<div class="gauge-wrap"><div class="gauge ${a.ocupacion > 85 ? 'danger' : a.ocupacion > 60 ? 'warn' : ''}" style="--pct:${a.ocupacion}"><strong>${Math.round(a.ocupacion)}%</strong></div></div>`)}
+          ${this.chartCard('Ocupación de stock por Cámara', 'Pallets SAP sobre capacidad configurada', this.stockCapacityBars(a.camarasStock))}
+          ${this.chartCard('Capacidad de stock utilizada', `${a.palletsStock.toLocaleString('es-CL')} de ${a.capacidadStock.toLocaleString('es-CL')} pallets`, `<div class="gauge-wrap"><div class="gauge ${a.ocupacionStock > 85 ? 'danger' : a.ocupacionStock > 60 ? 'warn' : ''}" style="--pct:${a.ocupacionStock}"><strong>${Math.round(a.ocupacionStock)}%</strong></div></div>`)}
+          ${this.chartCard('Posiciones registradas en Mapa WMS', 'Capa física independiente del saldo SAP; no se usa para calcular ocupación de stock', this.capacityBars(a.camarasMapa), 'wide')}
         </div><h2 class="group-title">Lectura operacional actual</h2>
         ${this.chartCard('Distribución actual por etapa', 'Condiciones WMS actuales; pueden superponerse', this.flow(a.flujo), 'wide')}
         <h2 class="group-title">Insights calculados</h2><section class="analysis-insights panel-surface">${a.insights.length ? a.insights.map(x => `<article class="${x.tipo}"><i>${x.tipo === 'warning' ? '!' : x.tipo === 'success' ? '✓' : 'i'}</i><div><b>${this.escape(x.titulo)}</b><span>${this.escape(x.detalle)}</span></div></article>`).join('') : this.empty('No hay observaciones relevantes para este alcance.')}</section>
@@ -306,13 +313,48 @@ const DashboardController = {
   analysisSummary(label, value, detail, tone) { return `<article class="analysis-summary-card ${tone}"><span>${this.escape(label)}</span><strong>${this.escape(value)}</strong><small>${this.escape(detail)}</small></article>`; },
   chartCard(title, sub, content, cls = '') { return `<article class="chart-card panel-surface ${cls}"><header><div><h3>${this.escape(title)}</h3><p>${this.escape(sub)}</p></div></header><div class="chart-body">${content}</div></article>`; },
 
+  stockCapacityBars(items) {
+    if (!items.length) return this.empty('No hay cámaras con stock en el alcance seleccionado');
+    return `<div class="capacity-bars">${items.map(x => `<article><header><b>${this.escape(x.nombre)}</b><span>${x.porcentaje.toFixed(1)}%</span></header><div><i style="width:${Math.min(100, Math.max(0, x.porcentaje))}%"></i></div><footer><span>${x.pallets.toLocaleString('es-CL')} pallets</span><span>${x.disponibles.toLocaleString('es-CL')} disponibles · cap. ${x.capacidad.toLocaleString('es-CL')}</span></footer></article>`).join('')}</div>`;
+  },
+
   capacityBars(items) {
     if (!items.length) return this.empty('No hay cámaras en el alcance seleccionado');
-    return `<div class="capacity-bars">${items.map(x => `<article><header><b>${this.escape(x.nombre)}</b><span>${x.porcentaje.toFixed(1)}%</span></header><div><i style="width:${Math.min(100, x.porcentaje)}%"></i></div><footer><span>${x.posicionados} posicionados</span><span>${x.capacidad} posiciones</span></footer></article>`).join('')}</div>`;
+    return `<div class="capacity-bars">${items.map(x => `<article><header><b>${this.escape(x.nombre)}</b><span>${x.porcentaje.toFixed(1)}%</span></header><div><i style="width:${Math.min(100, Math.max(0, x.porcentaje))}%"></i></div><footer><span>${x.posicionados.toLocaleString('es-CL')} posicionados</span><span>${x.capacidad.toLocaleString('es-CL')} posiciones</span></footer></article>`).join('')}</div>`;
+  },
+
+  occupancyTrendChart(series) {
+    const sets = (series || []).filter(x => Array.isArray(x.puntos) && x.puntos.length);
+    if (!sets.length) return this.empty('Sin snapshots de ocupación para este período');
+    const stamps = sets.flatMap(s => s.puntos.map(p => Date.parse(p.fecha || '')).filter(Number.isFinite));
+    const minT = stamps.length ? Math.min(...stamps) : 0;
+    const maxT = stamps.length ? Math.max(...stamps) : minT;
+    const colors = ['#10b981', '#06b6d4'];
+    const seriesSvg = sets.map((s, index) => {
+      const color = colors[index % colors.length];
+      const coords = s.puntos.map((p, i) => {
+        const ts = Date.parse(p.fecha || '');
+        const x = minT === maxT || !Number.isFinite(ts) ? (s.puntos.length === 1 ? 50 : 5 + i / Math.max(1, s.puntos.length - 1) * 90) : 5 + (ts - minT) / (maxT - minT) * 90;
+        const pct = Math.max(0, Math.min(100, Number(p.valor || 0)));
+        const y = 90 - pct * .75;
+        return { x, y, pct };
+      });
+      const points = coords.map(p => `${p.x},${p.y}`).join(' ');
+      return `${coords.length > 1 ? `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.2" vector-effect="non-scaling-stroke"/>` : ''}${coords.map(p => `<circle cx="${p.x}" cy="${p.y}" r="2.3" fill="${color}" vector-effect="non-scaling-stroke"/>`).join('')}`;
+    }).join('');
+    const firstDate = stamps.length ? new Date(minT).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' }) : '—';
+    const lastDate = stamps.length ? new Date(maxT).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit' }) : '—';
+    const legend = sets.map((s, index) => {
+      const last = s.puntos.at(-1);
+      const delta = last?.deltaPallets;
+      const deltaText = delta == null ? 'baseline' : `${delta > 0 ? '+' : ''}${delta} PLT`;
+      return `<span><i style="background:${colors[index % colors.length]}"></i>${this.escape(s.nombre)} <b>${Number(last?.valor || 0).toFixed(1)}%</b> · ${this.escape(deltaText)}</span>`;
+    }).join('');
+    return `<svg class="line-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Tendencia de ocupación por cámara"><line x1="5" y1="90" x2="95" y2="90" stroke="currentColor" opacity=".12"/><line x1="5" y1="52.5" x2="95" y2="52.5" stroke="currentColor" opacity=".08"/>${seriesSvg}</svg><div class="axis-labels"><span>${firstDate}</span><span>${lastDate}</span></div><div class="chart-legend">${legend}</div>`;
   },
 
   lineChart(items) {
-    if (!items.length) return this.empty('Sin ingresos registrados para este período');
+    if (!items.length) return this.empty('Sin registros para este período');
     const max = Math.max(...items.map(x => x.valor), 1), min = Math.min(...items.map(x => x.valor)), den = Math.max(1, max - min);
     const pts = items.map((x, i) => `${items.length === 1 ? 50 : 5 + i/(items.length-1)*90},${82 - (x.valor-min)/den*65}`).join(' ');
     return `<svg class="line-chart" viewBox="0 0 100 100" preserveAspectRatio="none"><defs><linearGradient id="area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#10b981" stop-opacity=".45"/><stop offset="1" stop-color="#10b981" stop-opacity="0"/></linearGradient></defs><polygon points="5,90 ${pts} 95,90" fill="url(#area)"/><polyline points="${pts}" fill="none" stroke="#10b981" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><div class="axis-labels"><span>${this.escape(items[0].fecha)}</span><span>${this.escape(items.at(-1).fecha)}</span></div>`;
@@ -320,7 +362,11 @@ const DashboardController = {
 
   flow(items) {
     const max = Math.max(...items.map(x => x.valor), 1);
-    return `<div class="flow-chart">${items.map((x, i) => `<div class="flow-step"><span>${this.escape(x.nombre)}</span><div style="width:${Math.max(22, x.valor/max*100)}%">${Number(x.valor || 0).toLocaleString('es-CL')}</div>${i < items.length-1 ? '<i>›</i>' : ''}</div>`).join('')}</div>`;
+    return `<div class="flow-chart">${items.map((x, i) => {
+      const valor = Number(x.valor || 0);
+      const width = valor > 0 ? Math.max(22, valor / max * 100) : 0;
+      return `<div class="flow-step"><span>${this.escape(x.nombre)}</span><div style="width:${width}%">${valor.toLocaleString('es-CL')}</div>${i < items.length-1 ? '<i>›</i>' : ''}</div>`;
+    }).join('')}</div>`;
   },
 
   /* ============================ MONITOR ========================== */
