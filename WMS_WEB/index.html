@@ -13,13 +13,13 @@
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/dashboard.css">
-    <link rel="stylesheet" href="css/gruero.css">
+  <link rel="stylesheet" href="css/gruero.css">
   <link rel="stylesheet" href="css/inventory-operation.css">
-    <link rel="stylesheet" href="css/operaciones.css">
+  <link rel="stylesheet" href="css/operaciones.css">
   <link rel="stylesheet" href="css/stock.css">
   <link rel="stylesheet" href="css/labels.css">
   <link rel="stylesheet" href="css/reportes.css">
-    <link rel="stylesheet" href="css/mapa-2d5.css">
+  <link rel="stylesheet" href="css/mapa-2d5.css">
   <link rel="stylesheet" href="css/responsive.css">
   <link rel="stylesheet" href="css/theme-system.css">
 </head>
@@ -39,9 +39,8 @@
   <script src="js/config/navegacion.js"></script>
 
   <!--
-    Backend preparado, aún deshabilitado por SUPABASE_CONFIG.HABILITADO=false.
-    Cargar la configuración acá no cambia el modo local: sólo deja disponible
-    el contrato real para migrar cada sección de forma controlada.
+    Backend autoritativo del WMS. Supabase es la única fuente de identidad,
+    permisos y datos operacionales para los módulos que se vayan migrando.
   -->
   <script src="js/config/supabaseConfig.js"></script>
 
@@ -52,15 +51,15 @@
   <script src="js/services/notificationService.js"></script>
   <script src="js/services/cameraScannerService.js"></script>
   <script src="js/services/undoService.js"></script>
-    <script src="js/services/grueroSyncService.js"></script>
+  <script src="js/services/grueroSyncService.js"></script>
   <script src="js/services/exportService.js"></script>
 
   <!-- Modelos de Datos -->
   <script src="js/models/userModel.js"></script>
   <script src="js/models/palletModel.js"></script>
-    <script src="js/models/mapaModel.js"></script>
-    <script src="js/services/grueroCodeResolver.js"></script>
-    <script src="js/services/mapaOfflineService.js"></script>
+  <script src="js/models/mapaModel.js"></script>
+  <script src="js/services/grueroCodeResolver.js"></script>
+  <script src="js/services/mapaOfflineService.js"></script>
   <script src="js/models/panelControlModel.js"></script>
   <script src="js/models/operacionesModel.js"></script>
   <script src="js/models/stockModel.js"></script>
@@ -74,9 +73,9 @@
 
   <!-- Renderizadores Gráficos -->
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js" crossorigin="anonymous"></script>
-    <script src="js/views/renderers/pixiMapVisualLayer.js"></script>
-    <script src="js/views/renderers/mapaIsometricRenderer.js"></script>
-    <script src="js/views/renderers/mapa2DRenderer.js"></script>
+  <script src="js/views/renderers/pixiMapVisualLayer.js"></script>
+  <script src="js/views/renderers/mapaIsometricRenderer.js"></script>
+  <script src="js/views/renderers/mapa2DRenderer.js"></script>
   <script src="js/views/renderers/mapa1DRenderer.js"></script>
 
   <!-- Componentes UI -->
@@ -87,8 +86,8 @@
   <!-- Controladores Modulares -->
   <script src="js/controllers/authController.js"></script>
   <script src="js/controllers/dashboardController.js"></script>
-    <script src="js/controllers/mapaController.js"></script>
-    <script src="js/controllers/grueroController.js"></script>
+  <script src="js/controllers/mapaController.js"></script>
+  <script src="js/controllers/grueroController.js"></script>
   <script src="js/controllers/inventoryOperationController.js"></script>
   <script src="js/controllers/stockController.js"></script>
   <script src="js/controllers/labelController.js"></script>
@@ -103,9 +102,8 @@
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       /*
-       * En modo remoto restaura primero la sesión de Supabase y recién luego
-       * deja que AppController decida qué vista mostrar. En modo local esta
-       * llamada es un no-op y el arranque conserva el comportamiento previo.
+       * Antes de montar la UI se restaura/valida la sesión contra Supabase.
+       * Sin una sesión Auth + WMS válida, AppController sólo puede mostrar Login.
        */
       await BackendBootstrapService.prepararInicio();
       BackendBootstrapService.instalarHooks();
