@@ -115,11 +115,13 @@
   <script src="js/controllers/bitacoraController.js"></script>
   <script src="js/controllers/userAdminController.js"></script>
   <script src="js/controllers/appController.js"></script>
+  <script src="js/services/operacionesBackendBridge.js"></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       await BackendBootstrapService.prepararInicio();
       BackendBootstrapService.instalarHooks();
+      OperacionesBackendBridge.install();
       NavigationPermissionService.install(AppController);
       AppController.init();
     });
