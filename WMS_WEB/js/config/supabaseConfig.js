@@ -91,17 +91,22 @@ const SUPABASE_CONFIG = {
       detalle: 'wms_bitacora_detalle',
       pendientes: 'wms_bitacora_pendientes',
       precarga: 'wms_bitacora_precarga',
+      turno: 'wms_bitacora_turno',
+      kpiDetalle: 'wms_bitacora_kpi_detalle',
+      pendienteAuditoria: 'wms_bitacora_pendiente_auditoria',
       crear: 'wms_crear_bitacora',
       modificar: 'wms_modificar_bitacora',
       anular: 'wms_anular_bitacora'
     },
     verificaciones: {
       listar: 'wms_verificaciones_listar',
+      turno: 'wms_verificaciones_turno',
       detalle: 'wms_verificacion_detalle',
       resolverLote: 'wms_verificacion_resolver_lote',
       crear: 'wms_crear_verificacion',
       modificar: 'wms_modificar_verificacion',
-      anular: 'wms_anular_verificacion'
+      anular: 'wms_anular_verificacion',
+      anularTurno: 'wms_anular_verificaciones_turno'
     },
     reportes: {
       catalogos: 'wms_reportes_catalogos',
