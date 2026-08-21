@@ -32,6 +32,7 @@ const SUPABASE_CONFIG = {
     },
     dashboard: {
       resumen: 'wms_dashboard_resumen',
+      ocupacionTendencia: 'wms_dashboard_ocupacion_tendencia',
       estadoDetalle: 'wms_dashboard_estado_detalle',
       analisis: 'wms_analisis_operacional',
       monitorResumen: 'wms_monitor_resumen',
