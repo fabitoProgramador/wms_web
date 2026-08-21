@@ -95,7 +95,7 @@
       const sync = m.sincronizacion;
       const syncTone = sync.sincronizado ? 'success' : 'critical';
       const syncLabel = sync.sincronizado ? 'Sincronizado' : 'Pendiente';
-      const syncDetail = `${sync.idsPadre.toLocaleString('es-CL')} SAP / ${sync.instanciasActivas.toLocaleString('es-CL')} WMS`;
+      const syncDetail = `${sync.filasSap.toLocaleString('es-CL')} filas SAP · ${sync.idsLoteDistintos.toLocaleString('es-CL')} pallets lógicos · ${sync.instanciasActivas.toLocaleString('es-CL')} WMS`;
       const ultimaGlobal = Date.parse(m.ultimaActividadEn || '') || 0;
 
       this.patchHtml('monitorNowGrid', [
