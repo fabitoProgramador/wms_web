@@ -1,21 +1,20 @@
 /**
  * Contrato de conexión WMS_WEB -> Supabase.
  *
- * IMPORTANTE
+ * REGLA DE ARQUITECTURA
  * --------------------------------------------------------------------
- * HABILITADO permanece en false durante la migración por secciones.
- * Mientras siga así, el frontend conserva el funcionamiento local actual.
- * Las vistas se conectarán una a una al backend real y recién después se
- * habilitará el modo remoto de forma global.
+ * Supabase es la fuente autoritativa del WMS. No existe fallback de datos
+ * operacionales, usuarios, roles o permisos hacia localStorage.
+ *
+ * localStorage puede seguir utilizándose únicamente para preferencias de UI
+ * o caches/offline explícitas; nunca como base de datos de negocio.
  *
  * La clave publishable es pública por diseño y puede vivir en el navegador.
  * NUNCA colocar service_role ni secretos administrativos en este repositorio.
  */
 const SUPABASE_CONFIG = {
-  HABILITADO: false,
+  HABILITADO: true,
 
-  // Proyecto real del WMS. Dejar estos cimientos configurados no activa nada
-  // mientras HABILITADO sea false.
   URL: 'https://tbcgkpjhjymwyhuobpqy.supabase.co',
   PUBLISHABLE_KEY: 'sb_publishable_PoFNqdz0IbA2zeQ-q6urHQ_-M5Bje0h',
 
@@ -24,8 +23,7 @@ const SUPABASE_CONFIG = {
 
   /**
    * Registro central de contratos del backend.
-   * Cada controlador deberá usar estos nombres y no escribir RPCs sueltos.
-   * Se irán utilizando sección por sección a medida que se migre la UI.
+   * Cada controlador debe usar estos nombres y no escribir RPCs sueltos.
    */
   RPC: {
     auth: {
@@ -135,9 +133,9 @@ const SUPABASE_CONFIG = {
   },
 
   diagnostico() {
-    if (!this.HABILITADO) return 'Backend preparado pero deshabilitado: el sistema continúa en modo local.';
+    if (!this.HABILITADO) return 'Backend Supabase deshabilitado.';
     if (!this.URL) return 'Falta la URL del proyecto de Supabase.';
     if (!this.PUBLISHABLE_KEY) return 'Falta la clave pública del proyecto de Supabase.';
-    return 'Configuración de Supabase completa.';
+    return 'Backend Supabase activo.';
   }
 };
