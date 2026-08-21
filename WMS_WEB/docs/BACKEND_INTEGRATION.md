@@ -75,6 +75,8 @@ RPC:
 
 Conserva búsqueda, filtros de almacén/estado, filtros por columna, paginación, copiar fila, copiar todo y Excel. El total base correcto es **1.064 registros SAP**. La tarjeta usa el estándar WMS-first y no consulta `StockModel`.
 
+La migración `reportes_stock_exponer_flujo_operativo` agrega sólo `estado_principal` al payload de lectura para que la tarjeta muestre el flujo real sin reconstruirlo en JavaScript.
+
 `ReportesModel` permanece temporalmente sólo por **Generar Reporte**, que se migrará en una fase propia.
 
 ## Estándar de tarjetas
@@ -94,6 +96,8 @@ SAP, detector, reserva, almacén y auditoría quedan en detalle expandido.
 ## Offline
 
 Se mantienen Service Worker, shell, JS/CSS/assets cacheados y preferencias de UI. Sin conexión no se inventan ni restauran datos WMS locales como reemplazo de Supabase.
+
+El shell actual de esta fase usa cache `wms-map-shell-v133`, que incluye los módulos remotos de Visualizar Stock.
 
 ## Rama
 
