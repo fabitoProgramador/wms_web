@@ -70,11 +70,16 @@ const DashboardModel = {
     return response.datos;
   },
 
-  /** Resumen Ejecutivo de PROTER + serie real para la tarjeta de tendencia. */
+  /**
+   * Resumen Ejecutivo de PROTER.
+   * La tendencia usa el histórico real de fecha de recepción SAP. Se evita
+   * fijarla a 30 días porque un snapshot válido puede no contener recepciones
+   * recientes y eso hacía que la tarjeta mostrara una falsa tendencia 0%.
+   */
   async resumen() {
     const [raw, analisis] = await Promise.all([
       this.rpc('dashboard', 'resumen', { p_almacen_codigo: this.ALMACEN_RESUMEN }),
-      this.rpc('dashboard', 'analisis', { p_almacen: 'PROTER', p_periodo: '30D' })
+      this.rpc('dashboard', 'analisis', { p_almacen: 'PROTER', p_periodo: 'TODO' })
     ]);
 
     const universo = raw?.universo || {};
@@ -114,18 +119,8 @@ const DashboardModel = {
     };
   },
 
-  /** Detalle remoto paginado/buscable de una tarjeta KPI. */
-  async estadoDetalle(estado, { busqueda = '', limite = 100, offset = 0 } = {}) {
-    const codigo = this.kpiCodigo(estado);
-    const rows = await this.rpc('dashboard', 'estadoDetalle', {
-      p_kpi: codigo,
-      p_almacen_codigo: this.ALMACEN_RESUMEN,
-      p_busqueda: String(busqueda || '').trim() || null,
-      p_limite: limite,
-      p_offset: offset
-    });
-
-    const items = (Array.isArray(rows) ? rows : []).map(row => ({
+  filaEstadoDetalle(row) {
+    return {
       instanciaId: row.instancia_id,
       idLote: row.id_lote || '',
       codigoVisual: row.codigo_visual || '',
@@ -147,12 +142,47 @@ const DashboardModel = {
       requisitos: row.requisitos || '',
       enPedido: Boolean(row.en_pedido),
       decisionGerencia: row.decision_gerencia || ''
-    }));
+    };
+  },
+
+  /**
+   * Detalle remoto/buscable de una tarjeta KPI.
+   *
+   * El RPC limita cada llamada a 200 filas. El frontend no debe confundir ese
+   * límite técnico con el total del KPI, por lo que recorre páginas del mismo
+   * RPC hasta completar `total_resultados`. La búsqueda continúa ejecutándose
+   * íntegramente en PostgreSQL; aquí no se filtra una muestra descargada.
+   */
+  async estadoDetalle(estado, { busqueda = '', limite = 200, offset = 0 } = {}) {
+    const codigo = this.kpiCodigo(estado);
+    const texto = String(busqueda || '').trim() || null;
+    const pagina = Math.min(200, Math.max(1, Number(limite) || 200));
+    let siguiente = Math.max(0, Number(offset) || 0);
+    let total = 0;
+    const items = [];
+
+    do {
+      const rows = await this.rpc('dashboard', 'estadoDetalle', {
+        p_kpi: codigo,
+        p_almacen_codigo: this.ALMACEN_RESUMEN,
+        p_busqueda: texto,
+        p_limite: pagina,
+        p_offset: siguiente
+      });
+      const lote = Array.isArray(rows) ? rows : [];
+      if (!lote.length) break;
+
+      if (!total) total = this.numero(lote[0].total_resultados);
+      items.push(...lote.map(row => this.filaEstadoDetalle(row)));
+      siguiente += lote.length;
+
+      if (lote.length < pagina) break;
+    } while (siguiente < total);
 
     return {
       estado: this.kpiNombre(codigo),
       codigo,
-      total: items.length ? this.numero(rows[0].total_resultados) : 0,
+      total,
       items
     };
   },
