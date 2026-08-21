@@ -151,7 +151,7 @@ const OperacionesBackendModel = {
     const rows = (result.items || []).map(x => [
       x.id_lote || '', x.itemcode || '', x.itemname || '', Number(x.kilos || 0), Number(x.cajas || 0),
       this.fechaVisible(x.fecha_ingreso), x.estado || '', x.estado_sap || '', x.estado_wms || '',
-      Array.isArray(x.condiciones_wms) ? x.condiciones_wms.join(' · ') : '', x.info_calidad || '', x.info_general || '',
+      Array.isArray(x.condiciones_wms) ? x.condiciones_wms.join(' · ') : (x.requisitos || ''), x.info_calidad || '', x.info_general || '',
       x.detector_de || '', x.reservado || '', x.whsname || x.whscode || ''
     ]);
     const name = `${result.lote_id || 'PACKING_APROBACION'}.xlsx`;
