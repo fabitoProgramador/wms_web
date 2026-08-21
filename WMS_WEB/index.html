@@ -63,12 +63,13 @@
 
   <!--
     PanelControlModel conserva temporalmente sólo contratos legacy de Bitácora
-    y Verificaciones hasta que esos módulos sean migrados. DashboardModel es
-    la única fuente del Panel de Control y consume exclusivamente Supabase.
+    y Verificaciones hasta que esos módulos sean migrados. El Panel ya separa
+    sus submenús remotos en modelos de Resumen, Análisis y Monitor.
   -->
   <script src="js/models/panelControlModel.js"></script>
   <script src="js/models/dashboardModel.js"></script>
   <script src="js/models/dashboardAnalysisModel.js"></script>
+  <script src="js/models/dashboardMonitorModel.js"></script>
 
   <script src="js/models/operacionesModel.js"></script>
   <script src="js/models/stockModel.js"></script>
@@ -96,6 +97,7 @@
   <script src="js/controllers/authController.js"></script>
   <script src="js/controllers/dashboardController.js"></script>
   <script src="js/controllers/dashboardAnalysisController.js"></script>
+  <script src="js/controllers/dashboardMonitorController.js"></script>
   <script src="js/controllers/mapaController.js"></script>
   <script src="js/controllers/grueroController.js"></script>
   <script src="js/controllers/inventoryOperationController.js"></script>
