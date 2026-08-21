@@ -177,6 +177,36 @@ const StockPlantaController = {
     return `<span class="ops-badge" style="--badge:${color}">${this.esc(value)}</span>`;
   },
 
+  toggleCard(el,event) {
+    const card = el.closest('.ops-card');
+    if (!card) return;
+    if (event) {
+      const target = event.target;
+      if (target.closest?.('button') && !target.closest('.ops-card-toggle')) return;
+      if (target.closest?.('input,a,label')) return;
+    }
+    const open = card.classList.toggle('open');
+    card.querySelector('.ops-card-toggle')?.setAttribute('aria-expanded', open ? 'true' : 'false');
+  },
+
+  conditionChips(p) {
+    const condiciones = Array.isArray(p.condiciones_wms_array) ? p.condiciones_wms_array : [];
+    if (!condiciones.length) return '<span class="ops-state-empty">Sin condiciones pendientes</span>';
+    return `<span class="ops-state-chips">${condiciones.map(x => this.opsBadge(x,'estado')).join('')}</span>`;
+  },
+
+  stateStrip(p) {
+    return `<div class="ops-state-strip" aria-label="Flujo y condiciones del pallet">
+      <div><small>FLUJO OPERATIVO</small><span>${this.opsBadge(p.flujo_display,'estado')}</span></div>
+      <div class="ops-state-conditions"><small>CONDICIÓN / REQUISITO</small>${this.conditionChips(p)}</div>
+    </div>`;
+  },
+
+  decisionStrip(p) {
+    if (!p.decision_display || p.decision_display === 'Sin decisión gerencial') return '';
+    return `<div class="ops-decision-strip"><small>DECISIÓN GERENCIA</small><span>${this.opsBadge(p.decision_display,'estado')}${p.modalidad_display && p.modalidad_display !== '—' ? `<em>${this.esc(p.modalidad_display)}</em>` : ''}</span></div>`;
+  },
+
   notaTexto(titulo, texto) {
     const v = this.esc(texto ?? '—');
     return `<button class="cell-text" title="${v}" data-value="${v}" onclick="StockPlantaController.abrirTexto('${titulo}',this.dataset.value)">${v}</button>`;
@@ -197,10 +227,13 @@ const StockPlantaController = {
 
   auditBlock(p) {
     const e = p?.ultimo_evento;
-    if (!e) return `<div class="ops-card-audit empty"><span class="ops-audit-title">AUDITORÍA</span><p>Sin movimientos WMS registrados para este pallet.</p></div>`;
+    if (!e) return `<div class="ops-card-audit empty"><span class="ops-audit-title">AUDITORÍA · ÚLTIMO MOVIMIENTO</span><p>Sin movimientos WMS registrados para este pallet.</p></div>`;
     const fecha = e.creado_en ? new Date(e.creado_en).toLocaleString('es-CL') : '—';
     return `<div class="ops-card-audit"><span class="ops-audit-title">AUDITORÍA · ÚLTIMO MOVIMIENTO</span><dl>
-      <div><dt>Acción</dt><dd>${this.esc(e.evento || e.contexto || '—')}</dd></div>
+      <div><dt>Evento</dt><dd>${this.esc(e.evento || '—')}</dd></div>
+      <div><dt>Contexto</dt><dd>${this.esc(e.contexto || '—')}</dd></div>
+      <div><dt>Anterior</dt><dd>${this.esc(e.valor_anterior || '—')}</dd></div>
+      <div><dt>Nuevo</dt><dd>${this.esc(e.valor_nuevo || '—')}</dd></div>
       <div><dt>Usuario</dt><dd>${this.esc(e.usuario || '—')}</dd></div>
       <div><dt>Fecha</dt><dd>${this.esc(fecha)}</dd></div>
       <div class="wide"><dt>Motivo</dt><dd>${this.esc(e.motivo || 'Sin motivo informado')}</dd></div>
@@ -208,18 +241,19 @@ const StockPlantaController = {
   },
 
   detalleCards(items) {
-    return `<div id="stockCards" class="ops-card-list">${items.map(p => `<article class="ops-card${this.orderFlagClass(p)}" onclick="OperacionesController.toggleCard(this,event)">
+    return `<div id="stockCards" class="ops-card-list">${items.map(p => `<article class="ops-card${this.orderFlagClass(p)}" onclick="StockPlantaController.toggleCard(this,event)">
       <div class="ops-card-head">
         <div class="ops-card-id"><b>${this.esc(p.id_lote_real)}</b><small>${this.esc(p.numero_articulo)} · ${this.esc(p.descripcion)}</small></div>
-        <div class="ops-card-flag">${this.opsBadge(p.estado_calidad,'calidad')}</div>
+        <div class="ops-card-flag ops-state-flag ops-wms-primary"><small>ESTADO WMS</small>${this.opsBadge(p.estado_wms_efectivo_display,'estado')}</div>
         <button type="button" class="ops-card-toggle" aria-expanded="false" aria-label="Ver auditoría y detalle del lote ${this.esc(p.id_lote_real)}"><i></i></button>
       </div>
-      <div class="ops-card-metrics">
+      <div class="ops-card-metrics ops-card-metrics-compact">
         <div><small>KILOS</small><span><b class="kilos">${this.fmt(p.kilos_stock)}</b></span></div>
         <div><small>CAJAS</small><span>${this.fmt(p.cajas)}</span></div>
         <div><small>FEC. FABRIC.</small><span>${this.esc(p.fecha_fabricacion)}</span></div>
-        <div><small>ESTADO</small><span>${this.opsBadge(p.estado,'estado')}</span></div>
       </div>
+      ${this.stateStrip(p)}
+      ${this.decisionStrip(p)}
       ${this.orderDelay(p)}
       <div class="ops-card-notes">
         <div><small>INFO CALIDAD</small><span>${this.notaTexto('Info Calidad',p.info_calidad)}</span></div>
@@ -227,9 +261,16 @@ const StockPlantaController = {
       </div>
       <div class="ops-card-detail"><div class="ops-card-more">
         <div class="ops-card-kv">
+          <div><small>CALIDAD SAP</small><span>${this.opsBadge(p.estado_sap_display,'calidad')}</span></div>
+          <div><small>ESTADO WMS REGISTRADO</small><span>${this.opsBadge(p.estado_wms_registrado_display,'estado')}</span></div>
+          <div><small>ESTADO WMS EFECTIVO</small><span>${this.opsBadge(p.estado_wms_efectivo_display,'estado')}</span></div>
+          <div><small>FLUJO OPERATIVO</small><span>${this.opsBadge(p.flujo_display,'estado')}</span></div>
+          <div><small>CONDICIONES WMS</small><span>${this.esc(p.condiciones_display)}</span></div>
+          <div><small>DECISIÓN GERENCIA</small><span>${this.esc(p.decision_display)}</span></div>
+          <div><small>MODALIDAD</small><span>${this.esc(p.modalidad_display)}</span></div>
           <div><small>DETECTOR METALES</small><span>${this.opsBadge(p.detector_metales,'detector')}</span></div>
           <div><small>RESERVA</small><span>${this.opsBadge(p.reserva_texto,'reserva')}</span></div>
-          <div><small>ALMACÉN</small><span>${this.esc(p.ubicacion)}</span></div>
+          <div><small>ALMACÉN SAP</small><span>${this.esc(p.ubicacion)}</span></div>
         </div>
         ${this.auditBlock(p)}
       </div></div>
