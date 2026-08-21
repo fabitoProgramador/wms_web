@@ -36,10 +36,19 @@
   <script src="js/config/estados.js"></script>
   <script src="js/config/mapaConfig.js"></script>
   <script src="js/config/destinosAnden.js"></script>
-    <script src="js/config/navegacion.js"></script>
+  <script src="js/config/navegacion.js"></script>
+
+  <!--
+    Backend preparado, aún deshabilitado por SUPABASE_CONFIG.HABILITADO=false.
+    Cargar la configuración acá no cambia el modo local: sólo deja disponible
+    el contrato real para migrar cada sección de forma controlada.
+  -->
+  <script src="js/config/supabaseConfig.js"></script>
 
   <!-- Servicios Transversales -->
   <script src="js/services/seguridadService.js"></script>
+  <script src="js/services/supabaseService.js"></script>
+  <script src="js/services/backendBootstrapService.js"></script>
   <script src="js/services/notificationService.js"></script>
   <script src="js/services/cameraScannerService.js"></script>
   <script src="js/services/undoService.js"></script>
@@ -92,7 +101,14 @@
 
   <!-- Inicialización de la Aplicación -->
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
+      /*
+       * En modo remoto restaura primero la sesión de Supabase y recién luego
+       * deja que AppController decida qué vista mostrar. En modo local esta
+       * llamada es un no-op y el arranque conserva el comportamiento previo.
+       */
+      await BackendBootstrapService.prepararInicio();
+      BackendBootstrapService.instalarHooks();
       AppController.init();
     });
   </script>
