@@ -152,6 +152,18 @@ Un pallet entra en la cola cuando su estado operativo está `BLOQUEADO` o `RECHA
 
 Por eso, reclasificar a RECHAZO hace que un pallet quede disponible en Aprobaciones si no tenía decisión gerencial. Si ya estaba BLOQUEADO y ya pertenecía a la cola, cambiarlo a RECHAZO no necesariamente aumenta el total de pendientes: cambia su clasificación de cola y aparecerá bajo el filtro `RECHAZO`.
 
+### Estado actual validado
+
+Con el stock actual, antes de registrar movimientos WMS nuevos, la cola contiene:
+
+- 564 pallets `BLOQUEADOS`;
+- 0 pallets `RECHAZO` WMS;
+- 384.710,938 kg;
+- 36.007,843 cajas;
+- 28 códigos de artículo distintos.
+
+Por eso el select de Estado actualmente sólo muestra `BLOQUEADOS`; `RECHAZO` aparecerá automáticamente cuando exista al menos un pallet rechazado en la cola.
+
 ### Filtros
 
 Los filtros son remotos, no filtros JavaScript sobre una página descargada:
