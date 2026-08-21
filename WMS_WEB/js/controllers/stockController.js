@@ -10,6 +10,8 @@ const StockController = {
   loteResultado: null,
   loteTexto: '',
 
+  initStockPlanta(container) { return StockPlantaController.init(container); },
+
   esc(v) { return SeguridadService.escaparHtml(v); },
   fmt(v) { return Number(v || 0).toLocaleString('es-CL'); },
   badge(text,tipo='') {
