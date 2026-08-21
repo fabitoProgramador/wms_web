@@ -72,14 +72,15 @@ const DashboardModel = {
 
   /**
    * Resumen Ejecutivo de PROTER.
-   * La tendencia usa el histórico real de fecha de recepción SAP. Se evita
-   * fijarla a 30 días porque un snapshot válido puede no contener recepciones
-   * recientes y eso hacía que la tarjeta mostrara una falsa tendencia 0%.
+   *
+   * La tendencia de ocupación NO se deriva de fecha de recepción SAP. El
+   * backend conserva snapshots agregados de PROTER al finalizar cada
+   * sincronización del padre y calcula los deltas entre fotografías reales.
    */
   async resumen() {
-    const [raw, analisis] = await Promise.all([
+    const [raw, rawTendencia] = await Promise.all([
       this.rpc('dashboard', 'resumen', { p_almacen_codigo: this.ALMACEN_RESUMEN }),
-      this.rpc('dashboard', 'analisis', { p_almacen: 'PROTER', p_periodo: 'TODO' })
+      this.rpc('dashboard', 'ocupacionTendencia', { p_almacen: 'PROTER', p_limite: 30 })
     ]);
 
     const universo = raw?.universo || {};
@@ -96,13 +97,20 @@ const DashboardModel = {
       };
     });
 
-    const tendencia = (analisis?.tendencias?.ingresos || []).slice(-10).map(row => ({
-      fecha: String(row.fecha || ''),
-      valor: this.numero(row.pallets)
+    const tendencia = (rawTendencia?.puntos || []).map(row => ({
+      fecha: String(row.capturado_en || ''),
+      valor: this.numero(row.ocupacion_porcentaje),
+      pallets: this.numero(row.pallets),
+      cajas: this.numero(row.cajas),
+      kilos: this.numero(row.kilos),
+      deltaPallets: row.delta_pallets == null ? null : this.numero(row.delta_pallets),
+      deltaOcupacion: row.delta_ocupacion_pp == null ? null : this.numero(row.delta_ocupacion_pp)
     }));
+    const actualTendencia = rawTendencia?.actual || {};
 
     return {
       raw,
+      rawTendencia,
       stock: this.numero(universo.pallets),
       cajas: this.numero(universo.cajas),
       kilos: this.numero(universo.kilos),
@@ -115,7 +123,17 @@ const DashboardModel = {
       almacenNombre: raw?.almacen_nombre || 'PROTER',
       generadoEn: raw?.generado_en || null,
       porEstado,
-      tendencia
+      tendencia,
+      tendenciaActual: {
+        capturadoEn: actualTendencia.capturado_en || null,
+        actualizadoSapEn: actualTendencia.actualizado_sap_en || null,
+        pallets: this.numero(actualTendencia.pallets, this.numero(universo.pallets)),
+        ocupacion: this.numero(actualTendencia.ocupacion_porcentaje, this.numero(ocupacion.porcentaje)),
+        deltaPallets: actualTendencia.delta_pallets == null ? null : this.numero(actualTendencia.delta_pallets),
+        deltaCajas: actualTendencia.delta_cajas == null ? null : this.numero(actualTendencia.delta_cajas),
+        deltaKilos: actualTendencia.delta_kilos == null ? null : this.numero(actualTendencia.delta_kilos),
+        deltaOcupacion: actualTendencia.delta_ocupacion_pp == null ? null : this.numero(actualTendencia.delta_ocupacion_pp)
+      }
     };
   },
 
