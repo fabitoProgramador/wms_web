@@ -1,5 +1,5 @@
 /* Shell offline específico del módulo Mapa y dependencias necesarias para arrancarlo. */
-const CACHE='wms-map-shell-v119';
+const CACHE='wms-map-shell-v120';
 const CORE=[
   './','./index.html','./assets/logo.png','./assets/icono.ico',
   './css/main.css','./css/components.css','./css/dashboard.css','./css/gruero.css','./css/inventory-operation.css','./css/mapa-2d5.css','./css/labels.css','./css/responsive.css','./css/theme-system.css',
