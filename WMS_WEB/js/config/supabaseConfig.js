@@ -74,6 +74,8 @@ const SUPABASE_CONFIG = {
       aplicarPedido: 'wms_operaciones_pedido_aplicar',
       aplicarDespacho: 'wms_operaciones_despacho_aplicar',
       aprobaciones: 'wms_operaciones_aprobaciones_listar',
+      motivoAprobacion: 'wms_operaciones_aprobacion_motivo',
+      packingAprobacion: 'wms_operaciones_aprobacion_packing',
       decidirAprobacion: 'wms_operaciones_aprobacion_decidir',
       reclasificar: 'wms_operaciones_reclasificar'
     },
