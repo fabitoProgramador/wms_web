@@ -92,16 +92,16 @@
       if (requestId !== this.monitorRequestId || filtro !== this.monitorFilter || AppController.activeView !== 'monitor_tiempo_real' || !this.monitorContainer) return;
 
       this.bindMonitorFilters(m.filtros);
-      const latest = m.actividad[0];
       const sync = m.sincronizacion;
       const syncTone = sync.sincronizado ? 'success' : 'critical';
       const syncLabel = sync.sincronizado ? 'Sincronizado' : 'Pendiente';
       const syncDetail = `${sync.idsPadre.toLocaleString('es-CL')} SAP / ${sync.instanciasActivas.toLocaleString('es-CL')} WMS`;
+      const ultimaGlobal = Date.parse(m.ultimaActividadEn || '') || 0;
 
       this.patchHtml('monitorNowGrid', [
         ['Conectividad','En línea','Supabase respondió correctamente','success'],
         ['SAP ↔ WMS',syncLabel,syncDetail,syncTone],
-        ['Última actividad',latest ? this.eventDateTime(latest.timestamp) : 'Sin eventos',latest ? latest.titulo : 'Sin registros operacionales','info'],
+        ['Última actividad',ultimaGlobal ? this.eventDateTime(ultimaGlobal) : 'Sin actividad','Último evento o sincronización registrada por backend','info'],
         ['Stock WMS actual',m.stock.pallets.toLocaleString('es-CL'),`${m.stock.cajas.toLocaleString('es-CL')} cajas · ${m.stock.kilos.toLocaleString('es-CL')} kg`,'info']
       ].map(x => `<article class="${x[3]}"><span>${this.escape(x[0])}</span><b>${this.escape(x[1])}</b><small>${this.escape(x[2])}</small></article>`).join(''));
 
