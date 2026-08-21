@@ -1,6 +1,7 @@
 /**
  * Visualizar Stock: adaptador remoto exclusivo de Reportes Operacionales.
- * Generar Reporte permanece separado hasta su propia fase de migración.
+ * Reportes está completamente desacoplado de StockModel; este modelo se ocupa
+ * sólo de listado, filtros por columna y exportación remota de Visualizar Stock.
  */
 const ReportesStockModel = {
   numero(value, fallback = 0) {
