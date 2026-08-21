@@ -68,6 +68,7 @@
        Las tres vistas de Operaciones usan exclusivamente OperacionesBackendModel. -->
   <script src="js/models/operacionesModel.js"></script>
   <script src="js/models/operacionesBackendModel.js"></script>
+
   <!-- StockModel se mantiene sólo mientras módulos legacy restantes todavía lo consuman. -->
   <script src="js/models/stockModel.js"></script>
   <script src="js/models/stockPlantaModel.js"></script>
@@ -77,10 +78,11 @@
   <script src="js/models/labelHistoryModel.js"></script>
   <script src="js/models/inventoryOperationModel.js"></script>
   <script src="js/services/inventoryOperationService.js"></script>
-  <!-- ReportesModel conserva temporalmente Generar Reporte legacy;
-       Visualizar Stock usa exclusivamente ReportesStockModel. -->
+
+  <!-- Reportes Operacionales: ambos submódulos consumen exclusivamente Supabase. -->
   <script src="js/models/reportesModel.js"></script>
   <script src="js/models/reportesStockModel.js"></script>
+
   <script src="js/services/labelFormatService.js"></script>
   <script src="js/services/zebraPrintService.js"></script>
   <script src="js/services/labelService.js"></script>
@@ -120,14 +122,12 @@
   <script src="js/controllers/userAdminController.js"></script>
   <script src="js/controllers/appController.js"></script>
   <script src="js/services/operacionesBackendBridge.js"></script>
-  <script src="js/services/reportesStockBridge.js"></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       await BackendBootstrapService.prepararInicio();
       BackendBootstrapService.instalarHooks();
       OperacionesBackendBridge.install();
-      ReportesStockBridge.install();
       NavigationPermissionService.install(AppController);
       AppController.init();
     });
