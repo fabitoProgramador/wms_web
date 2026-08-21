@@ -53,7 +53,7 @@ Asignar VERIFICACIÓN o SIN DM a un pallet RECHAZADO no levanta automáticamente
 - Teléfono: Estado WMS ocupa su propia línea; flujo y condición se apilan; kilos/cajas permanecen compactos; auditoría se muestra en una columna.
 - La tarjeta cerrada muestra sólo lo necesario para decidir; la información extensa queda en el panel expandido.
 
-## Vistas ya alineadas
+## Vistas alineadas
 
 - Operaciones → Movimientos de Cámara.
 - Operaciones → Despacho.
