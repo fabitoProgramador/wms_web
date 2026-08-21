@@ -87,28 +87,34 @@ Reglas y validaciones aplicadas:
 - Los RPC requieren rol `authenticated` y el permiso backend `stock.ver`.
 - No se modificó CSS.
 
-#### Tendencia de ocupación
+#### Tendencia de ocupación / stock
 
-La tendencia mide **cambio neto real de stock de cámara entre sincronizaciones SAP**, no fecha de recepción del producto.
+El histórico se basa en **snapshots reales entre sincronizaciones SAP**, no en `fecha_rec` del producto.
 
-Se creó `wms_private.stock_ocupacion_snapshots`, que guarda únicamente una fotografía agregada por cámara:
+`wms_private.stock_ocupacion_snapshots` conserva una fotografía agregada por cada almacén vigente del padre:
 
 - pallets;
 - cajas;
 - kilos;
-- capacidad;
-- porcentaje de ocupación;
+- capacidad y porcentaje cuando existe capacidad configurada;
+- entradas y salidas de pallets entre sincronizaciones;
+- cajas/kilos asociados a entradas y salidas;
 - fecha de captura y fecha del snapshot SAP.
 
-`wms_private.capturar_stock_ocupacion_snapshot()` se ejecuta al finalizar `wms_sincronizar_padre(...)`. Si el saldo no cambió, no crea un punto duplicado. Si cambia, el siguiente punto calcula delta de pallets, cajas, kilos y puntos porcentuales de ocupación.
+`wms_private.stock_almacen_membresia_actual` conserva sólo la membresía actual `id_lote + almacén` necesaria para distinguir entradas y salidas sin duplicar históricos completos del padre.
 
-Esto permite representar correctamente entradas hacia PROTER y salidas desde PROTER sin modificar ni duplicar el detalle de `Lotes_en_Stock`.
+`wms_private.capturar_stock_ocupacion_snapshot()` se ejecuta al finalizar `wms_sincronizar_padre(...)`. Si el saldo no cambió, no crea ruido. Si cambia, el siguiente punto puede mostrar variación neta y también entradas/salidas por almacén.
+
+Para PROTER y POST TÚNEL, donde existe capacidad configurada, el gráfico se interpreta como **tendencia de ocupación**. Para Patio, Andenes y otras ubicaciones sin capacidad física configurada se interpreta como **tendencia de stock**, sin inventar un porcentaje de ocupación.
 
 La primera fotografía real es el baseline actual. No se inventó un histórico anterior porque el snapshot SAP actual no permite reconstruir de manera fiable a qué hora ocurrió cada entrada/salida pasada.
 
-Prueba transaccional validada: mover temporalmente un pallet de PROTER a Andén produjo `-1 pallet`, `-8 cajas`, `-80 kg` y `-0,20 pp`; la transacción se revirtió después de comprobar el cálculo.
+Pruebas transaccionales validadas:
 
-Datos baseline:
+- PROTER → Andén: `-1 pallet`, `-8 cajas`, `-80 kg`, `-0,20 pp` en PROTER.
+- Andén de Producción → PROTER: una misma sincronización registró `1 salida` en Andén y `1 entrada` en PROTER, con `224,321 cajas` y `2.543,8 kg`; la transacción se revirtió después de comprobar el cálculo.
+
+Datos baseline de cámaras:
 
 - PROTER: 430/508 pallets, 84,65%.
 - POST TÚNEL: 343/356 pallets, 96,35%.
@@ -117,55 +123,73 @@ Datos baseline:
 
 Estado: **cerrado contra backend**.
 
-Contrato:
+Contratos:
 
 - `public.wms_analisis_operacional(p_almacen,p_periodo)`
+- `public.wms_analisis_almacenes_catalogo()`
 
 Filtros validados:
 
-- Cámara: `TODOS`, `PROTER`, `POST TUNEL`.
+- Alcance físico especial `TODOS`: **PROTER + POST TÚNEL**.
+- Almacenes individuales: catálogo dinámico obtenido desde `Lotes_en_Stock`; el frontend no mantiene una lista local fija.
 - Período: `HOY`, `7D`, `30D`, `90D`, `TODO`.
-- `TODOS` significa **PROTER + POST TÚNEL**, no todos los almacenes SAP. Patio, Andén, despacho virtual u otras ubicaciones no se mezclan con la capacidad física de las cámaras.
-- El período afecta tendencia/actividad histórica; stock, distribución y capacidad representan el estado actual del alcance seleccionado.
+- El período afecta tendencia/actividad histórica; stock y distribución representan el estado actual del alcance seleccionado.
+
+Almacenes vigentes actuales detectados automáticamente:
+
+- PROTER (`CAM302`): 430 pallets.
+- POST TÚNEL (`PTUN02`): 343 pallets.
+- ANDÉN DE PRODUCCIÓN (`ANPRO02`): 30 pallets.
+- PATIO (`PATIO02`): 231 pallets.
+- ANDÉN DE DESPACHO (`ADESP02`): 29 pallets.
+- CÁMARA VIRTUAL (`CVIRT02`): 1 pallet.
+
+`TODOS` mantiene su significado físico: 430 + 343 = **773 pallets** en PROTER + POST TÚNEL. Los demás almacenes se consultan individualmente y no contaminan la capacidad combinada de cámaras.
 
 Lecturas separadas:
 
-1. **Ocupación de stock SAP**: pallets presentes en cámara / capacidad configurada.
+1. **Ocupación de stock SAP**: pallets presentes / capacidad configurada, sólo donde existe una capacidad real.
 2. **Ocupación del Mapa WMS**: posiciones físicas registradas en `Posiciones_Mapa` / capacidad del mapa.
+3. **Flujo entre sincronizaciones**: entradas y salidas de pallets por almacén detectadas al comparar membresía SAP entre snapshots.
 
-Estas métricas no se mezclan. Un mapa todavía vacío puede marcar 0 posiciones WMS sin convertir falsamente el stock SAP en 0% de ocupación.
+Estas métricas no se mezclan. Un almacén sin capacidad configurada devuelve `ocupación = null`, no `0%`, y la vista reemplaza esa tarjeta por kilos actuales y flujo del período.
 
 Datos actuales validados:
 
 - PROTER: 430/508 = 84,6%, 78 disponibles.
 - POST TÚNEL: 343/356 = 96,3%, 13 disponibles.
 - Ambas cámaras: 773/864 = 89,5%, 91 disponibles.
-- El universo combinado contiene 773 `id_lote` únicos en las dos cámaras en este snapshot.
-- `Posiciones_Mapa` todavía no tiene posiciones para este stock, por lo que la ocupación de mapa permanece 0% y se muestra como capa independiente.
+- Andén de Producción: 30 pallets, 3.403,889 cajas, 39.006 kg, sin porcentaje de ocupación artificial.
+- Patio: 231 pallets, 9.401,3 cajas, 93.968,088 kg, sin porcentaje de ocupación artificial.
+- Andén de Despacho: 29 pallets, 1.867,8 cajas, 18.678 kg.
+- Cámara Virtual: 1 pallet, 70 cajas, 840 kg.
 
-La vista muestra:
+La vista muestra dinámicamente según el almacén:
 
 - pallets actuales;
 - cajas actuales;
-- ocupación de stock;
-- posiciones WMS;
-- tendencia de ocupación por cámara a partir de snapshots;
+- kilos actuales cuando no existe capacidad;
+- ocupación de stock cuando existe capacidad;
+- entradas y salidas SAP del período;
+- tendencia de ocupación para cámaras o tendencia de stock para almacenes sin capacidad;
 - actividad de verificaciones/rechazos/despachos del período;
 - distribución por estado;
 - Top 5 productos por cajas;
-- capacidad de stock por cámara;
-- capacidad total de stock;
-- posiciones registradas en Mapa WMS;
+- capacidad y mapa WMS sólo cuando aplican;
 - lectura operacional por etapas;
 - insights calculados por backend.
 
 `Despachados` cuenta pallets pertenecientes a despachos `CERRADO` según `fecha_operacional` y utiliza el almacén snapshot del despacho. No se infiere un despacho por la desaparición de un pallet del padre SAP.
 
-Las barras con valor cero ya no dibujan un ancho mínimo artificial. Los insights de “cámara con mayor ocupación” utilizan ocupación de stock SAP, no el mapa WMS vacío.
+Las barras con valor cero no dibujan un ancho mínimo artificial. Los insights de “cámara con mayor ocupación” utilizan ocupación de stock SAP, no el mapa WMS vacío.
 
-Se validó el RPC con la sesión Auth/RBAC real del usuario administrador, además de sus cálculos internos. `wms_analisis_operacional` y `wms_dashboard_ocupacion_tendencia` no tienen ejecución para `anon`.
+Se validó el catálogo y los RPC con la sesión Auth/RBAC real, además de sus cálculos internos. `wms_analisis_operacional`, `wms_analisis_almacenes_catalogo` y `wms_dashboard_ocupacion_tendencia` no tienen ejecución para `anon`.
 
-No se modificó CSS.
+Frontend del submenú:
+
+- `js/models/dashboardAnalysisModel.js`: adapta catálogo, métricas, flujos y tendencias remotas.
+- `js/controllers/dashboardAnalysisController.js`: renderiza el selector dinámico y adapta la misma composición visual a cámaras y almacenes sin capacidad.
+- No se modificó CSS.
 
 ### 02.3 — Monitor en Tiempo Real
 
@@ -180,7 +204,8 @@ No se marca cerrado hasta revisar filtros, actualización periódica, eventos, a
 
 ### Limpieza frontend del Panel
 
-- `js/models/dashboardModel.js` es el adaptador remoto del Panel.
+- `js/models/dashboardModel.js` es el adaptador remoto base del Panel.
+- `js/models/dashboardAnalysisModel.js` y `js/controllers/dashboardAnalysisController.js` encapsulan la ampliación del submenú Análisis Operacional sin convertir el controlador base en una lista hardcodeada de almacenes.
 - Resumen Ejecutivo y Análisis Operacional no consultan `MapaModel`, `OperacionesModel`, verificaciones locales ni almacenamiento local para obtener información operacional.
 - `PanelControlModel` continúa cargado **temporalmente** sólo porque Bitácora y Registro de Verificaciones todavía conservan lógica legacy hasta su migración.
 - Bitácora y Registro de Verificaciones ya fueron movidos en navegación desde `Panel de Control` a `Operaciones`.
