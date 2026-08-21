@@ -19,7 +19,7 @@ const LoteDetalladoController = {
   render() {
     if (!this.container) return;
     this.container.innerHTML = `<section class="stock-view lote-view">
-      ${DashboardController.operationalHeader({ eyebrow:'CONSULTA DE INVENTARIO', title:'Lote Detallado', status:'Identidad lógica y saldo SAP desde Supabase' })}
+      ${DashboardController.operationalHeader({ eyebrow:'CONSULTA DE INVENTARIO', title:'Lote Detallado', status:'Identidad lógica, estados WMS y saldo SAP desde Supabase' })}
       <form class="lote-search panel-surface" onsubmit="LoteDetalladoController.buscar(event)">
         <label><span>N° de Lote o código visual</span><input id="loteSearchInput" class="form-control" value="${this.esc(this.texto)}" placeholder="Ej: 263011055163" autocomplete="off"></label>
         <button class="stock-action primary" type="submit">🔍 Buscar</button>
@@ -31,7 +31,7 @@ const LoteDetalladoController = {
   },
 
   estadoInicial() {
-    return `<div class="lote-empty panel-surface"><span>🔎</span><b>Ingresa un ID de lote y presiona Buscar</b><p>También admite código visual cuando exista catálogo de letras configurado en backend.</p></div>`;
+    return `<div class="lote-empty panel-surface"><span>🔎</span><b>Ingresa un ID de lote o código visual y presiona Buscar</b><p>El backend resuelve la referencia visual cuando existe catálogo configurado.</p></div>`;
   },
 
   async buscar(event) {
@@ -48,7 +48,7 @@ const LoteDetalladoController = {
     }
 
     const req = ++this.requestId;
-    if (result) result.innerHTML = '<div class="lote-empty panel-surface"><span>⌛</span><b>Consultando Supabase…</b><p>Validando identidad lógica, saldo SAP y estado WMS.</p></div>';
+    if (result) result.innerHTML = '<div class="lote-empty panel-surface"><span>⌛</span><b>Consultando Supabase…</b><p>Validando identidad lógica, saldo SAP, estados WMS y auditoría.</p></div>';
     try {
       const data = await LoteDetalladoModel.buscar(this.texto);
       if (req !== this.requestId || !this.container) return;
@@ -89,6 +89,33 @@ const LoteDetalladoController = {
     return `<span class="stock-badge" style="--badge-color:${color}">${this.esc(value)}</span>`;
   },
 
+  condiciones(p) {
+    if (!p.condicionesWms?.length) return '<span class="ops-state-empty">Sin condiciones pendientes</span>';
+    return `<span class="ops-state-chips">${p.condicionesWms.map(x => this.badge(x,'estado')).join('')}</span>`;
+  },
+
+  stateStrip(p) {
+    return `<div class="ops-state-strip lote-state-strip" aria-label="Capas de estado WMS del lote">
+      <div><small>FLUJO OPERATIVO</small><span>${this.badge(p.flujoOperativo,'estado')}</span></div>
+      <div class="ops-state-conditions"><small>CONDICIÓN / REQUISITO</small>${this.condiciones(p)}</div>
+    </div>`;
+  },
+
+  auditBlock(p) {
+    const a = p.auditoria;
+    if (!a) return `<article class="ops-card-audit empty panel-surface"><span class="ops-audit-title">AUDITORÍA · ÚLTIMO MOVIMIENTO</span><p>Sin movimientos WMS registrados para este pallet.</p></article>`;
+    const fecha = a.fecha ? new Date(a.fecha).toLocaleString('es-CL') : '—';
+    return `<article class="ops-card-audit panel-surface"><span class="ops-audit-title">AUDITORÍA · ÚLTIMO MOVIMIENTO</span><dl>
+      <div><dt>Evento</dt><dd>${this.esc(a.evento || '—')}</dd></div>
+      <div><dt>Contexto</dt><dd>${this.esc(a.contexto || '—')}</dd></div>
+      <div><dt>Anterior</dt><dd>${this.esc(a.valor_anterior || '—')}</dd></div>
+      <div><dt>Nuevo</dt><dd>${this.esc(a.valor_nuevo || '—')}</dd></div>
+      <div><dt>Usuario</dt><dd>${this.esc(a.usuario || '—')}</dd></div>
+      <div><dt>Fecha</dt><dd>${this.esc(fecha)}</dd></div>
+      <div class="wide"><dt>Motivo</dt><dd>${this.esc(a.motivo || 'Sin motivo informado')}</dd></div>
+    </dl></article>`;
+  },
+
   ficha(p) {
     const reserva = p.reserva || 'SIN RESERVA';
     const ubicacionTexto = p.multiAlmacenSap
@@ -114,18 +141,34 @@ const LoteDetalladoController = {
       ? `<div class="lote-duplicate">ℹ️ Pallet lógico con saldo distribuido en ${p.almacenesSap} almacenes SAP: ${p.ocurrencias.map(x => this.esc(x.almacen)).join(', ')}.</div>`
       : '';
     const mapaText = p.mapa.cantidad > 0 ? `${p.mapa.cantidad} posición${p.mapa.cantidad === 1 ? '' : 'es'} WMS` : 'Sin posición WMS registrada';
+    const decision = p.decisionGerencia !== 'Sin decisión gerencial'
+      ? `<div class="ops-decision-strip"><small>DECISIÓN GERENCIA</small><span>${this.badge(p.decisionGerencia,'estado')}${p.modalidadGerencia !== '—' ? `<em>${this.esc(p.modalidadGerencia)}</em>` : ''}</span></div>`
+      : '';
 
     return `<div class="lote-result">
       <article class="lote-hero panel-surface">
         <div class="lote-identity"><h2>📦 Lote ${this.esc(p.idLote)}</h2><p>${this.esc(p.itemname || p.itemcode || 'Sin descripción')}</p></div>
         <div class="lote-mini"><span><b>${this.fmt(p.kilos)} kg</b><small>Kilos totales SAP</small></span><span><b>${this.fmt(p.cajas)}</b><small>Cajas totales SAP</small></span><span><b>${p.almacenesSap}</b><small>Almacenes SAP</small></span></div>
-        <div class="lote-states">${this.badge(p.estadoPrincipal,'estado')}${this.badge(p.estadoCalidad,'calidad')}${this.badge(p.detector,'detector')}</div>
+        <div class="lote-states"><span><small>ESTADO WMS</small>${this.badge(p.estadoWmsEfectivo,'estado')}</span></div>
       </article>
+      ${this.stateStrip(p)}
+      ${decision}
       ${multi}
       ${this.info('🔬',`Info calidad · ${p.estadoCalidad}`,p.infoCalidad || 'Sin información de calidad registrada','#f59e0b')}
       ${this.info('📝','Info general',p.infoGeneral || 'Sin información general registrada','#38bdf8')}
       ${this.info('🗂️','Info detallada',p.infoDetallada || 'Sin información detallada registrada','#a855f7')}
-      <article class="lote-details panel-surface"><h3>📋 Información adicional del lote</h3><div class="lote-fields">${campos.map(([a,b]) => `<div><small>${this.esc(a)}</small><b>${this.esc(b)}</b></div>`).join('')}<div><small>Reserva SAP</small>${this.badge(reserva,'reserva')}</div><div><small>Mapa WMS</small><b>${this.esc(mapaText)}</b></div></div></article>
+      <article class="lote-details panel-surface"><h3>📋 Información adicional del lote</h3><div class="lote-fields">
+        <div><small>Calidad SAP</small>${this.badge(p.estadoSap,'calidad')}</div>
+        <div><small>Estado WMS registrado</small>${this.badge(p.estadoWmsRegistrado,'estado')}</div>
+        <div><small>Estado WMS efectivo</small>${this.badge(p.estadoWmsEfectivo,'estado')}</div>
+        <div><small>Flujo operativo</small>${this.badge(p.flujoOperativo,'estado')}</div>
+        <div><small>Condiciones WMS</small><b>${this.esc(p.condicionesDisplay)}</b></div>
+        <div><small>Decisión gerencia</small><b>${this.esc(p.decisionGerencia)}</b></div>
+        <div><small>Modalidad</small><b>${this.esc(p.modalidadGerencia)}</b></div>
+        ${campos.map(([a,b]) => `<div><small>${this.esc(a)}</small><b>${this.esc(b)}</b></div>`).join('')}
+        <div><small>Reserva SAP</small>${this.badge(reserva,'reserva')}</div><div><small>Mapa WMS</small><b>${this.esc(mapaText)}</b></div>
+      </div></article>
+      ${this.auditBlock(p)}
       <button class="stock-action location" onclick="LoteDetalladoController.abrirUbicaciones()">📍 Ver ubicaciones SAP${p.mapa.cantidad ? ' y Mapa WMS' : ''}</button>
     </div>`;
   },
