@@ -26,7 +26,25 @@ const OperacionesBackendModel = {
     return raw;
   },
 
+  normalizarCondiciones(item = {}) {
+    if (Array.isArray(item.condiciones_wms)) return item.condiciones_wms.filter(Boolean);
+    return String(item.requisitos || '')
+      .split(',')
+      .map(x => x.trim())
+      .filter(Boolean)
+      .map(x => x.replaceAll('_',' '));
+  },
+
   normalizarItem(item = {}) {
+    const tieneEstadoOperativo = Object.prototype.hasOwnProperty.call(item,'estado_operativo');
+    const estadoWmsRegistrado = Object.prototype.hasOwnProperty.call(item,'estado_wms_registrado')
+      ? item.estado_wms_registrado
+      : (tieneEstadoOperativo ? item.estado_wms : null);
+    const estadoOperativo = item.estado_operativo || item.estado_wms || item.estado_sap || null;
+    const condiciones = this.normalizarCondiciones(item);
+    const decision = item.decision || (item.decision_gerencia === 'AUTORIZADO_ENVIAR' ? 'AUTORIZADO A ENVIAR' : item.decision_gerencia) || null;
+    const modalidad = item.modalidad || item.modalidad_gerencia || null;
+
     return {
       ...item,
       id: String(item.instancia_id ?? ''),
@@ -37,13 +55,17 @@ const OperacionesBackendModel = {
       fecha_fabricacion_display: this.fechaVisible(item.fecha_fabricacion || item.fecha_ingreso),
       fecha_ingreso_display: this.fechaVisible(item.fecha_ingreso),
       estado_calidad_display: item.estado_sap || 'SIN INFORMACIÓN',
+      estado_wms_registrado_display: estadoWmsRegistrado || 'SIN ESTADO WMS PROPIO',
+      estado_operativo_display: estadoOperativo || 'SIN ESTADO OPERATIVO',
+      flujo_display: item.estado || estadoOperativo || 'SIN ESTADO',
+      condiciones_wms_array: condiciones,
       detector_display: item.detector_normalizado || item.detector_de || 'SIN INFORMACIÓN',
       reservado_display: item.reservado || 'SIN RESERVA',
       calidad_display: item.info_calidad || 'Sin información de calidad.',
       general_display: item.info_general || 'Sin información general.',
-      condiciones_display: Array.isArray(item.condiciones_wms) && item.condiciones_wms.length ? item.condiciones_wms.join(' · ') : 'Sin condiciones pendientes',
-      decision_display: item.decision || (item.decision_gerencia === 'AUTORIZADO_ENVIAR' ? 'AUTORIZADO A ENVIAR' : item.decision_gerencia) || 'Sin decisión gerencial',
-      modalidad_display: item.modalidad || item.modalidad_gerencia || '—'
+      condiciones_display: condiciones.length ? condiciones.join(' · ') : 'Sin condiciones pendientes',
+      decision_display: decision || 'Sin decisión gerencial',
+      modalidad_display: modalidad || '—'
     };
   },
 
