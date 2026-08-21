@@ -42,6 +42,7 @@
   <script src="js/services/seguridadService.js"></script>
   <script src="js/services/supabaseService.js"></script>
   <script src="js/services/backendBootstrapService.js"></script>
+  <script src="js/services/navigationPermissionService.js"></script>
   <script src="js/services/notificationService.js"></script>
   <script src="js/services/cameraScannerService.js"></script>
   <script src="js/services/undoService.js"></script>
@@ -114,6 +115,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
       await BackendBootstrapService.prepararInicio();
       BackendBootstrapService.instalarHooks();
+      NavigationPermissionService.install(AppController);
       AppController.init();
     });
   </script>
