@@ -48,6 +48,10 @@ const OperacionesBackendController = {
     return `<span class="ops-badge" style="--badge:${color}">${this.esc(text)}</span>`;
   },
 
+  wmsPrincipal(p){
+    return p.estado_operativo_display||p.estado_wms_registrado_display||'SIN ESTADO WMS';
+  },
+
   conditionChips(p){
     const condiciones=Array.isArray(p.condiciones_wms_array)?p.condiciones_wms_array:[];
     if(!condiciones.length)return '<span class="ops-state-empty">Sin condiciones pendientes</span>';
@@ -55,11 +59,26 @@ const OperacionesBackendController = {
   },
 
   stateStrip(p,{queue=false}={}){
-    return `<div class="ops-state-strip" aria-label="Capas de estado del pallet">
-      <div><small>ESTADO OPERATIVO</small><span>${this.badge(p.estado_operativo_display||'SIN ESTADO')}</span></div>
-      <div><small>${queue?'ESTADO COLA':'FLUJO / FILTRO'}</small><span>${this.badge(p.flujo_display||p.estado||'SIN ESTADO')}</span></div>
-      <div class="ops-state-conditions"><small>CONDICIONES / SUBESTADOS</small>${this.conditionChips(p)}</div>
+    return `<div class="ops-state-strip" aria-label="Flujo y condiciones del pallet">
+      <div><small>${queue?'COLA GERENCIAL':'FLUJO OPERATIVO'}</small><span>${this.badge(p.flujo_display||p.estado||'SIN FLUJO')}</span></div>
+      <div class="ops-state-conditions"><small>CONDICIÓN / REQUISITO</small>${this.conditionChips(p)}</div>
     </div>`;
+  },
+
+  decisionStrip(p){
+    const decision=String(p.decision_display||'').trim();
+    if(!decision||this.normalizar(decision)==='SIN DECISION GERENCIAL')return '';
+    const modalidad=String(p.modalidad_display||'').trim();
+    return `<div class="ops-decision-strip"><small>DECISIÓN GERENCIA</small><span>${this.badge(decision)}${modalidad&&modalidad!=='—'?`<em>${this.esc(modalidad)}</em>`:''}</span></div>`;
+  },
+
+  ubicacionWms(p){
+    const partes=[];
+    if(p.camara)partes.push(String(p.camara));
+    if(p.banda!==null&&p.banda!==undefined&&p.banda!=='')partes.push(`Banda ${p.banda}`);
+    if(p.posicion!==null&&p.posicion!==undefined&&p.posicion!=='')partes.push(`Pos. ${p.posicion}`);
+    if(p.altura!==null&&p.altura!==undefined&&p.altura!=='')partes.push(`Nivel ${p.altura}`);
+    return partes.length?partes.join(' · '):'Sin posición WMS registrada';
   },
 
   textButton(title,text){
@@ -85,8 +104,16 @@ const OperacionesBackendController = {
 
   auditBlock(p){
     const a=p.auditoria;
-    if(!a)return `<div class="ops-card-audit empty"><span class="ops-audit-title">AUDITORÍA</span><p>Sin movimientos WMS registrados para este pallet.</p></div>`;
-    return `<div class="ops-card-audit"><span class="ops-audit-title">AUDITORÍA · ÚLTIMO MOVIMIENTO</span><dl><div><dt>Evento</dt><dd>${this.esc(a.evento||'—')}</dd></div><div><dt>Usuario</dt><dd>${this.esc(a.usuario||'—')}</dd></div><div><dt>Fecha</dt><dd>${this.esc(a.fecha?new Date(a.fecha).toLocaleString('es-CL'):'—')}</dd></div><div class="wide"><dt>Motivo</dt><dd>${this.esc(a.motivo||'Sin motivo informado')}</dd></div></dl></div>`;
+    if(!a)return `<div class="ops-card-audit empty"><span class="ops-audit-title">AUDITORÍA · ÚLTIMO MOVIMIENTO</span><p>Sin movimientos WMS registrados para este pallet.</p></div>`;
+    return `<div class="ops-card-audit"><span class="ops-audit-title">AUDITORÍA · ÚLTIMO MOVIMIENTO</span><dl>
+      <div><dt>Evento</dt><dd>${this.esc(a.evento||'—')}</dd></div>
+      <div><dt>Contexto</dt><dd>${this.esc(a.contexto||'—')}</dd></div>
+      <div><dt>Anterior</dt><dd>${this.esc(a.anterior||'—')}</dd></div>
+      <div><dt>Nuevo</dt><dd>${this.esc(a.nuevo||'—')}</dd></div>
+      <div><dt>Usuario</dt><dd>${this.esc(a.usuario||'—')}</dd></div>
+      <div><dt>Fecha</dt><dd>${this.esc(a.fecha?new Date(a.fecha).toLocaleString('es-CL'):'—')}</dd></div>
+      <div class="wide"><dt>Motivo</dt><dd>${this.esc(a.motivo||'Sin motivo informado')}</dd></div>
+    </dl></div>`;
   },
 
   orderDelay(p){
@@ -101,16 +128,16 @@ const OperacionesBackendController = {
         <div class="ops-card-head">
           ${checkbox?`<label class="ops-card-check"><input type="checkbox" aria-label="Seleccionar ${this.esc(p.id_lote)}" ${this.selected.has(Number(p.instancia_id))?'checked':''} onchange="OperacionesBackendController.toggleSelected(${Number(p.instancia_id)},this.checked)"></label>`:''}
           <div class="ops-card-id"><b>${this.esc(p.id_lote||'—')}</b><small>${this.esc(p.itemcode||'—')} · ${this.esc(p.itemname||'—')}</small></div>
-          <div class="ops-card-flag ops-state-flag"><small>CALIDAD SAP</small>${this.badge(p.estado_sap||'SIN INFORMACIÓN','quality')}</div>
+          <div class="ops-card-flag ops-state-flag ops-wms-primary"><small>ESTADO WMS</small>${this.badge(this.wmsPrincipal(p))}</div>
           <button type="button" class="ops-card-toggle" aria-expanded="false" aria-label="Ver auditoría y detalle del lote ${this.esc(p.id_lote||'')}"><i></i></button>
         </div>
-        <div class="ops-card-metrics">
+        <div class="ops-card-metrics ops-card-metrics-compact">
           <div><small>KILOS</small><span><b class="kilos">${this.fmt(p.kilos)}</b></span></div>
           <div><small>CAJAS</small><span>${this.fmt(p.cajas)}</span></div>
           <div><small>FEC. FABRIC.</small><span>${this.esc(p.fecha_fabricacion_display||'—')}</span></div>
-          <div><small>ESTADO OPERATIVO</small><span>${this.badge(p.estado_operativo_display||'—')}</span></div>
         </div>
         ${this.stateStrip(p)}
+        ${this.decisionStrip(p)}
         ${this.orderDelay(p)}
         <div class="ops-card-notes">
           <div><small>INFO CALIDAD</small><span>${this.textButton('Info Calidad',p.info_calidad||'Sin información de calidad.')}</span></div>
@@ -120,11 +147,15 @@ const OperacionesBackendController = {
           <div class="ops-card-kv">
             <div><small>CALIDAD SAP</small><span>${this.badge(p.estado_sap||'SIN INFORMACIÓN','quality')}</span></div>
             <div><small>ESTADO WMS REGISTRADO</small><span>${this.badge(p.estado_wms_registrado_display||'SIN ESTADO WMS PROPIO')}</span></div>
+            <div><small>ESTADO WMS EFECTIVO</small><span>${this.badge(this.wmsPrincipal(p))}</span></div>
+            <div><small>FLUJO OPERATIVO</small><span>${this.badge(p.flujo_display||p.estado||'SIN FLUJO')}</span></div>
+            <div><small>CONDICIONES WMS</small><span>${this.esc(p.condiciones_display||'Sin condiciones pendientes')}</span></div>
             <div><small>DECISIÓN GERENCIA</small><span>${this.esc(p.decision_display||'Sin decisión gerencial')}</span></div>
             <div><small>MODALIDAD</small><span>${this.esc(p.modalidad_display||'—')}</span></div>
             <div><small>DETECTOR METALES</small><span>${this.badge(p.detector_display||p.detector_de||'SIN INFORMACIÓN','detector')}</span></div>
             <div><small>RESERVA SAP</small><span>${this.esc(p.reservado||'SIN RESERVA')}</span></div>
             <div><small>ALMACÉN SAP</small><span>${this.esc(p.whsname||p.whscode||'—')}</span></div>
+            <div><small>UBICACIÓN WMS</small><span>${this.esc(this.ubicacionWms(p))}</span></div>
           </div>
           ${this.auditBlock(p)}
         </div></div>
@@ -430,14 +461,13 @@ const OperacionesBackendController = {
       <article class="ops-card approval-state-card" onclick="OperacionesBackendController.toggleCard(this,event)">
         <div class="ops-card-head">
           <div class="ops-card-id"><b>${this.esc(p.id_lote||'—')}</b><small>${this.esc(p.itemcode||'—')} · ${this.esc(p.itemname||'—')}</small></div>
-          <div class="ops-card-flag ops-state-flag"><small>CALIDAD SAP</small>${this.badge(p.estado_sap||'SIN INFORMACIÓN','quality')}</div>
-          <button type="button" class="ops-card-toggle" aria-expanded="false"><i></i></button>
+          <div class="ops-card-flag ops-state-flag ops-wms-primary"><small>ESTADO WMS</small>${this.badge(this.wmsPrincipal(p))}</div>
+          <button type="button" class="ops-card-toggle" aria-expanded="false" aria-label="Ver auditoría y detalle del lote ${this.esc(p.id_lote||'')}"><i></i></button>
         </div>
-        <div class="ops-card-metrics">
+        <div class="ops-card-metrics ops-card-metrics-compact">
           <div><small>KILOS</small><span><b class="kilos">${this.fmt(p.kilos)}</b></span></div>
           <div><small>CAJAS</small><span>${this.fmt(p.cajas)}</span></div>
           <div><small>FEC. INGRESO</small><span>${this.esc(p.fecha_ingreso_display)}</span></div>
-          <div><small>ESTADO COLA</small><span>${this.badge(p.flujo_display||p.estado||'—')}</span></div>
         </div>
         ${this.stateStrip(p,{queue:true})}
         ${this.orderDelay(p)}
@@ -448,12 +478,15 @@ const OperacionesBackendController = {
         <div class="ops-card-reason"><small>MOTIVO DE LA DECISIÓN</small><input class="form-control reason-input" value="${this.esc(p.motivo_decision||'')}" placeholder="Motivo de la decisión gerencial" onblur="OperacionesBackendController.saveReason(${Number(p.instancia_id)},this.value,${p.motivo_version===null||p.motivo_version===undefined?'null':Number(p.motivo_version)})" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur()}"></div>
         <div class="ops-card-detail"><div class="ops-card-more">
           <div class="ops-card-kv">
+            <div><small>CALIDAD SAP</small><span>${this.badge(p.estado_sap||'SIN INFORMACIÓN','quality')}</span></div>
             <div><small>ESTADO WMS REGISTRADO</small><span>${this.badge(p.estado_wms_registrado_display||'SIN ESTADO WMS PROPIO')}</span></div>
-            <div><small>ESTADO OPERATIVO EFECTIVO</small><span>${this.badge(p.estado_operativo_display||'SIN ESTADO')}</span></div>
-            <div><small>CONDICIONES WMS</small><span>${this.esc(p.condiciones_display)}</span></div>
+            <div><small>ESTADO WMS EFECTIVO</small><span>${this.badge(this.wmsPrincipal(p))}</span></div>
+            <div><small>COLA GERENCIAL</small><span>${this.badge(p.flujo_display||p.estado||'SIN FLUJO')}</span></div>
+            <div><small>CONDICIONES WMS</small><span>${this.esc(p.condiciones_display||'Sin condiciones pendientes')}</span></div>
             <div><small>DETECTOR</small><span>${this.badge(p.detector_display||p.detector_de||'SIN INFORMACIÓN','detector')}</span></div>
             <div><small>RESERVA SAP</small><span>${this.esc(p.reservado||'SIN RESERVA')}</span></div>
             <div><small>ALMACÉN SAP</small><span>${this.esc(p.whsname||p.whscode||'—')}</span></div>
+            <div><small>UBICACIÓN WMS</small><span>${this.esc(this.ubicacionWms(p))}</span></div>
           </div>
           ${this.auditBlock(p)}
         </div></div>
