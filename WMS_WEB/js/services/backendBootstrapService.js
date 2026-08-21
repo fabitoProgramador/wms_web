@@ -1,47 +1,42 @@
 /**
- * Puente temporal de arranque durante la migración local -> Supabase.
+ * Arranque autoritativo WMS_WEB -> Supabase.
  *
- * Objetivo: permitir preparar Login/Sesión sin reestructurar AppController.
- * Cuando todas las secciones consuman backend este puente podrá desaparecer y
- * AppController podrá depender directamente de una capa de sesión remota.
+ * Antes de mostrar la aplicación intenta restaurar la sesión Auth y valida
+ * usuario, rol, permisos y vigencia mediante public.wms_sesion_actual().
+ * Si esa validación falla, no se acepta ninguna sesión local alternativa.
  */
 const BackendBootstrapService = {
   _instalado: false,
 
-  /**
-   * Si el backend está habilitado intenta restaurar la sesión autoritativa.
-   * Si está deshabilitado no hace absolutamente nada: el flujo local sigue
-   * siendo el mismo que antes de esta migración.
-   */
   async prepararInicio() {
-    if (typeof SUPABASE_CONFIG === 'undefined' || !SUPABASE_CONFIG.listo()) return;
+    if (typeof SUPABASE_CONFIG === 'undefined' || !SUPABASE_CONFIG.listo()) {
+      UserModel.clearSession();
+      return { ok: false, error: 'Backend Supabase no configurado.' };
+    }
 
     const restaurada = await SupabaseService.restaurarSesion();
     if (restaurada.ok && restaurada.usuario) {
-      // Cache de presentación para los controladores legacy. La autorización
-      // real sigue estando en Supabase/RBAC; esto no concede permisos.
       UserModel.setCurrentUser(restaurada.usuario);
-      return;
+      return { ok: true, usuario: restaurada.usuario };
     }
 
-    // En modo remoto nunca se acepta una sesión local huérfana.
     UserModel.clearSession();
+    return { ok: false, sinSesion: true, error: restaurada.error || null };
   },
 
   /**
-   * Intercepta sólo logout para cerrar también la sesión Auth. Se conserva el
-   * método visual original de AppController y por eso no cambia el diseño.
+   * Conserva el método visual actual de AppController, pero el cierre real de
+   * Auth ocurre primero en Supabase. Después sólo se limpia la fachada local
+   * en memoria y se vuelve al Login.
    */
   instalarHooks() {
     if (this._instalado || typeof AppController === 'undefined') return;
     this._instalado = true;
 
-    const logoutLocal = AppController.logout.bind(AppController);
+    const logoutVisual = AppController.logout.bind(AppController);
     AppController.logout = async () => {
-      if (typeof SUPABASE_CONFIG !== 'undefined' && SUPABASE_CONFIG.listo()) {
-        await SupabaseService.salir();
-      }
-      logoutLocal();
+      await SupabaseService.salir();
+      logoutVisual();
     };
   }
 };
