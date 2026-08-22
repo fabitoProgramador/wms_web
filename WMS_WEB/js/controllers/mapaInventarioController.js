@@ -103,10 +103,11 @@ const MapaInventarioController = {
     const visual=item.codigoVisual||'?';
     const statusClass=item.estadoInventario.toLowerCase();
     const klass=item.estadoInventario==='NO_EXISTE'?'no_encontrado no_existe':statusClass;
-    const boxes=item.cajas==null?'—':this.fmt(item.cajas);
+    const boxes=item.cajasInventario==null?'—':this.fmt(item.cajasInventario);
+    const saldoNota=item.saldoCamaraEspecifico?' · saldo cámara':'';
     return `<button class="inventory-card ${klass}" data-id="${this.esc(item.idLote)}">
       <i>${this.esc(visual)}</i>
-      <span><strong>${this.esc(item.idLote)}</strong><small>${this.esc(item.itemcode)} · ${this.esc(item.itemname)} · ${boxes} cajas · WMS ${this.esc(item.estadoWms)}</small></span>
+      <span><strong>${this.esc(item.idLote)}</strong><small>${this.esc(item.itemcode)} · ${this.esc(item.itemname)} · ${boxes} cajas${saldoNota} · WMS ${this.esc(item.estadoWms)}</small></span>
       <em><b>${this.esc(this.statusLabel(item.estadoInventario))}</b><small>${this.esc(this.location(item))}</small></em>
     </button>`;
   },
@@ -116,13 +117,17 @@ const MapaInventarioController = {
   detalle(id){
     const item=this.item(id),root=document.getElementById('inventoryModal');if(!item||!root)return;
     const positions=item.posiciones.length?item.posiciones.map((p,index)=>`<div><dt>Posición ${index+1}</dt><dd>${this.esc(`${p.camara} · Banda ${p.banda} · P${p.posicion} · ${p.altura}`)}${p.cajas!=null?` · ${this.fmt(p.cajas)} cajas`:''}</dd></div>`).join(''):'<div><dt>Ubicación física</dt><dd>Sin posición WMS registrada</dd></div>';
+    const saldoLogicoDifiere=item.saldoCamaraEspecifico&&(
+      Number(item.cajasInventario)!==Number(item.cajas)||Number(item.kilosInventario)!==Number(item.kilos)
+    );
+    const saldoLogico=saldoLogicoDifiere?`<div><dt>Saldo lógico total</dt><dd>${item.cajas==null?'—':this.fmt(item.cajas)} cajas · ${item.kilos==null?'—':this.fmt(item.kilos)} kg</dd></div>`:'';
     const editButtons=this.canManage()
       ?(item.posiciones.length
         ?item.posiciones.map((p,index)=>`<button class="btn-secondary" data-edit-segment="${index}">Editar posición ${index+1} · ${this.esc(p.camara)} / Banda ${this.esc(p.banda)}</button>`).join('')
         :'<button class="btn-primary" id="inventoryAssign">Asignar posición física</button>')
       :'<small>Sin permiso mapa.gestionar: detalle disponible en modo lectura.</small>';
     root.innerHTML=`<div class="map-modal-backdrop"><section class="inventory-dialog"><header><div><b>${this.esc(item.codigoVisual||item.idLote)}</b><span>${this.esc(this.statusLabel(item.estadoInventario))}</span></div><button id="inventoryClose">×</button></header><div class="inventory-dialog-body">
-      <dl class="map-detail-grid"><div><dt>ID Lote</dt><dd>${this.esc(item.idLote)}</dd></div><div><dt>Artículo</dt><dd>${this.esc(item.itemcode)} · ${this.esc(item.itemname)}</dd></div><div><dt>Cajas</dt><dd>${item.cajas==null?'—':this.fmt(item.cajas)}</dd></div><div><dt>Kilos</dt><dd>${item.kilos==null?'—':this.fmt(item.kilos)}</dd></div><div><dt>Estado WMS</dt><dd>${this.esc(item.estadoWms)}</dd></div><div><dt>Calidad SAP</dt><dd>${this.esc(item.estadoSap)}</dd></div><div><dt>Condición WMS</dt><dd>${this.esc(item.condicionPrincipal||'Sin condición principal')}</dd></div><div><dt>Cámara SAP</dt><dd>${this.esc(item.camaraSap)}</dd></div><div><dt>Detector</dt><dd>${this.esc(item.detector)}</dd></div><div><dt>Posiciones WMS</dt><dd>${this.fmt(item.posicionesMapa)}${item.multiubicado?' · MULTIUBICADO':''}</dd></div>${positions}</dl>
+      <dl class="map-detail-grid"><div><dt>ID Lote</dt><dd>${this.esc(item.idLote)}</dd></div><div><dt>Artículo</dt><dd>${this.esc(item.itemcode)} · ${this.esc(item.itemname)}</dd></div><div><dt>Cajas · ${this.esc(this.camera)}</dt><dd>${item.cajasInventario==null?'—':this.fmt(item.cajasInventario)}</dd></div><div><dt>Kilos · ${this.esc(this.camera)}</dt><dd>${item.kilosInventario==null?'—':this.fmt(item.kilosInventario)}</dd></div>${saldoLogico}<div><dt>Estado WMS</dt><dd>${this.esc(item.estadoWms)}</dd></div><div><dt>Calidad SAP</dt><dd>${this.esc(item.estadoSap)}</dd></div><div><dt>Condición WMS</dt><dd>${this.esc(item.condicionPrincipal||'Sin condición principal')}</dd></div><div><dt>Cámara SAP</dt><dd>${this.esc(item.camaraSap)}</dd></div><div><dt>Detector</dt><dd>${this.esc(item.detector)}</dd></div><div><dt>Posiciones WMS</dt><dd>${this.fmt(item.posicionesMapa)}${item.multiubicado?' · MULTIUBICADO':''}</dd></div>${positions}</dl>
       ${item.noExistePadre?'<div class="lote-duplicate">⚠ Este pallet está posicionado en WMS pero no existe actualmente en Lotes_en_Stock.</div>':''}
       <div class="inventory-actions">${editButtons}${item.noExistePadre?'':`<button class="btn-secondary" id="inventoryFull">Ver ficha completa</button>`}</div>
     </div></section></div>`;
@@ -149,7 +154,7 @@ const MapaInventarioController = {
     const levels=MapaInventarioModel.niveles(this.geometry);
     const sameCamera=segmento?.camara===this.camera;
     const selectedBand=sameCamera?String(segmento.banda):'';
-    root.querySelector('.inventory-dialog-body').innerHTML=`<div class="inventory-assign-heading"><span>UBICACIÓN EN MAPA WMS</span><h3>${segmento?'Editar segmento físico':'Asignar posición física'}</h3><p>${segmento?`Se moverá únicamente el segmento seleccionado (${this.esc(segmento.camara)} / Banda ${this.esc(segmento.banda)} / P${segmento.posicion} / ${this.esc(segmento.altura)}).`:'El pallet aún no tiene una posición física registrada.'}</p></div>
+    root.querySelector('.inventory-dialog-body').innerHTML=`<div class="inventory-assign-heading"><span>UBICACIÓN EN MAPA WMS</span><h3>${segmento?'Editar segmento físico':'Asignar posición física'}</h3><p>${segmento?`Se moverá únicamente el segmento seleccionado (${this.esc(segmento.camara)} / Banda ${this.esc(segmento.banda)} / P${segmento.posicion} / ${this.esc(segmento.altura)}).`:`El pallet aún no tiene una posición física registrada. Se guardará el saldo correspondiente a ${this.esc(this.camera)} cuando exista.`}</p></div>
       <div class="inventory-position-form"><label><span>Banda</span><div class="select-shell"><select id="invBand"><option value="">Elegir…</option>${bands.map(b=>`<option value="${this.esc(b)}" ${selectedBand===String(b)?'selected':''}>${this.esc(b)}</option>`).join('')}</select></div></label><label><span>Posición</span><div class="select-shell"><select id="invPos"></select></div></label><label><span>Nivel</span><div class="select-shell"><select id="invLevel">${levels.map(l=>`<option value="${this.esc(l)}" ${sameCamera&&segmento?.altura===l?'selected':''}>${this.esc(l)}</option>`).join('')}</select></div></label></div>
       <div class="inventory-position-preview" id="invPreview"><span>Destino seleccionado · ${this.esc(this.camera)}</span><strong>Completá banda, posición y nivel</strong></div>
       <div class="inventory-assign-actions"><button class="btn-secondary" id="invBack">Volver</button><button class="btn-primary" id="invSave"><i class="wi wi-check"></i>Guardar posición</button></div><small id="invError" style="color:#ef4444"></small>`;
