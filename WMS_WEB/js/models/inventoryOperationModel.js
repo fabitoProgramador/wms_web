@@ -151,11 +151,24 @@ const InventoryOperationModel = {
   },
 
   metrics(session) {
-    const items = session?.items || [];
+    const items = Array.isArray(session?.items) ? session.items : [];
+    // `wms_inventario_sesiones` entrega resúmenes sin los ítems completos. En
+    // esas tarjetas usamos la métrica calculada por Supabase, no inventamos 0.
+    if (!items.length && session?.metrics) {
+      const m = session.metrics;
+      return {
+        total: Number(m.total ?? session.totalSnapshot ?? 0) || 0,
+        scanned: Number(m.scanned ?? 0) || 0,
+        pending: Number(m.pending ?? 0) || 0,
+        notScanned: Number(m.notScanned ?? m.not_scanned ?? 0) || 0,
+        review: Number(m.review ?? 0) || 0,
+        progress: Number(m.progress ?? 0) || 0
+      };
+    }
     const scanned = items.filter(item => item.estadoConteo === this.COUNT_STATES.SCANNED).length;
     const pending = items.filter(item => item.estadoConteo === this.COUNT_STATES.PENDING).length;
     const notScanned = items.filter(item => item.estadoConteo === this.COUNT_STATES.NOT_SCANNED).length;
-    const total = Number(session?.totalSnapshot ?? items.filter(x => !x.esExtra).length ?? items.length) || 0;
+    const total = Number(session?.totalSnapshot ?? items.filter(x => !x.esExtra).length) || 0;
     return {
       total,
       scanned,
