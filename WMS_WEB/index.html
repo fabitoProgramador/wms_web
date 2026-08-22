@@ -54,6 +54,8 @@
   <script src="js/models/userModel.js"></script>
   <script src="js/models/palletModel.js"></script>
   <script src="js/models/mapaModel.js"></script>
+  <script src="js/models/mapaCodigoModel.js"></script>
+  <script src="js/models/mapaInventarioModel.js"></script>
   <script src="js/services/grueroCodeResolver.js"></script>
   <script src="js/services/mapaOfflineService.js"></script>
 
@@ -105,6 +107,8 @@
   <script src="js/controllers/dashboardAnalysisController.js"></script>
   <script src="js/controllers/dashboardMonitorController.js"></script>
   <script src="js/controllers/mapaController.js"></script>
+  <script src="js/controllers/mapaCodigoController.js"></script>
+  <script src="js/controllers/mapaInventarioController.js"></script>
   <script src="js/controllers/grueroController.js"></script>
   <script src="js/controllers/inventoryOperationController.js"></script>
   <script src="js/controllers/stockPlantaController.js"></script>
@@ -122,12 +126,14 @@
   <script src="js/controllers/userAdminController.js"></script>
   <script src="js/controllers/appController.js"></script>
   <script src="js/services/operacionesBackendBridge.js"></script>
+  <script src="js/services/mapaSubmodulosBackendBridge.js"></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       await BackendBootstrapService.prepararInicio();
       BackendBootstrapService.instalarHooks();
       OperacionesBackendBridge.install();
+      MapaSubmodulosBackendBridge.install();
       NavigationPermissionService.install(AppController);
       AppController.init();
     });
