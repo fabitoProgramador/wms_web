@@ -4,12 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>WMS WEB — Planta Olmué Parral</title>
-
-  <!-- Favicon oficial corporativo -->
   <link rel="icon" type="image/x-icon" href="assets/icono.ico">
   <link rel="shortcut icon" type="image/x-icon" href="assets/icono.ico">
-
-  <!-- Hojas de Estilo Modulares -->
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/dashboard.css">
@@ -25,21 +21,19 @@
   <link rel="stylesheet" href="css/theme-system.css">
 </head>
 <body>
-
   <div id="appRoot"></div>
 
-  <!-- Configuración de la Aplicación -->
+  <!-- Configuración estable de aplicación. Ningún archivo de este bloque es una DB local. -->
   <script src="js/config/almacenes.js"></script>
   <script src="js/config/identidadPlanta.js"></script>
   <script src="js/config/turnos.js"></script>
   <script src="js/config/catalogo.js"></script>
   <script src="js/config/estados.js"></script>
   <script src="js/config/mapaConfig.js"></script>
-  <script src="js/config/destinosAnden.js"></script>
   <script src="js/config/navegacion.js"></script>
   <script src="js/config/supabaseConfig.js"></script>
 
-  <!-- Servicios Transversales -->
+  <!-- Infraestructura transversal -->
   <script src="js/services/seguridadService.js"></script>
   <script src="js/services/supabaseService.js"></script>
   <script src="js/services/backendBootstrapService.js"></script>
@@ -50,7 +44,7 @@
   <script src="js/services/grueroSyncService.js"></script>
   <script src="js/services/exportService.js"></script>
 
-  <!-- Modelos de Datos -->
+  <!-- Modelos base / mapa -->
   <script src="js/models/userModel.js"></script>
   <script src="js/models/palletModel.js"></script>
   <script src="js/models/mapaModel.js"></script>
@@ -61,41 +55,41 @@
   <script src="js/models/andenBackendModel.js"></script>
   <script src="js/services/grueroCodeResolver.js"></script>
   <script src="js/services/mapaOfflineService.js"></script>
-  <!-- PROTER y POST TÚNEL consumen Supabase; MapaModel sólo conserva shape/render y cache offline explícita. -->
   <script src="js/services/mapaCamarasLegacyIsolation.js"></script>
   <script src="js/services/mapaCamarasBackendAdapter.js"></script>
+  <script src="js/services/grueroBackendAdapter.js"></script>
 
-  <!-- PanelControlModel sigue temporalmente por consumidores legacy pendientes;
-       Bitácora y Verificaciones ya NO lo usan como base de negocio. -->
-  <script src="js/models/panelControlModel.js"></script>
+  <!-- Panel de Control: sólo modelos RPC -->
   <script src="js/models/dashboardModel.js"></script>
   <script src="js/models/dashboardAnalysisModel.js"></script>
   <script src="js/models/dashboardMonitorModel.js"></script>
 
-  <!-- OperacionesModel queda temporalmente para consumidores legacy.
-       Las tres vistas de Operaciones usan exclusivamente OperacionesBackendModel. -->
-  <script src="js/models/operacionesModel.js"></script>
+  <!-- Operaciones: backend autoritativo -->
   <script src="js/models/operacionesBackendModel.js"></script>
 
-  <!-- StockModel se mantiene sólo mientras módulos legacy restantes todavía lo consuman. -->
+  <!-- Stock/lotes productivos RPC; StockModel es sólo una fachada síncrona del snapshot backend. -->
   <script src="js/models/stockModel.js"></script>
   <script src="js/models/stockPlantaModel.js"></script>
   <script src="js/models/loteDetalladoModel.js"></script>
   <script src="js/models/bitacoraModel.js"></script>
   <script src="js/models/verificacionesModel.js"></script>
-  <script src="js/models/labelHistoryModel.js"></script>
+
+  <!-- Operación Inventario: snapshot/cola offline + adaptador Supabase -->
   <script src="js/models/inventoryOperationModel.js"></script>
   <script src="js/services/inventoryOperationService.js"></script>
+  <script src="js/services/inventoryBackendAdapter.js"></script>
 
-  <!-- Reportes Operacionales: ambos submódulos consumen exclusivamente Supabase. -->
+  <!-- Reportes Operacionales -->
   <script src="js/models/reportesModel.js"></script>
   <script src="js/models/reportesStockModel.js"></script>
 
+  <!-- Centro de Etiquetas: preferencias locales + snapshot/cola offline explícitos -->
   <script src="js/services/labelFormatService.js"></script>
   <script src="js/services/zebraPrintService.js"></script>
   <script src="js/services/labelService.js"></script>
+  <script src="js/models/labelHistoryModel.js"></script>
 
-  <!-- Renderizadores Gráficos -->
+  <!-- Renderizadores gráficos -->
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js" crossorigin="anonymous"></script>
   <script src="js/views/renderers/pixiMapVisualLayer.js"></script>
   <script src="js/views/renderers/mapaIsometricRenderer.js"></script>
@@ -107,7 +101,7 @@
   <script src="js/views/components/palletLabelTemplate.js"></script>
   <script src="js/views/components/cameraHUD.js"></script>
 
-  <!-- Controladores Modulares -->
+  <!-- Controladores -->
   <script src="js/controllers/authController.js"></script>
   <script src="js/controllers/dashboardController.js"></script>
   <script src="js/controllers/dashboardAnalysisController.js"></script>
@@ -134,7 +128,8 @@
   <script src="js/controllers/bitacoraController.js"></script>
   <script src="js/controllers/userAdminController.js"></script>
   <script src="js/controllers/appController.js"></script>
-  <script src="js/services/operacionesBackendBridge.js"></script>
+
+  <!-- Adaptadores de Mapa todavía requeridos por el visor principal. -->
   <script src="js/services/mapaProterBackendBridge.js"></script>
   <script src="js/services/mapaPostTunelBackendBridge.js"></script>
   <script src="js/services/mapaCamarasActionGuard.js"></script>
@@ -144,7 +139,14 @@
     document.addEventListener('DOMContentLoaded', async () => {
       await BackendBootstrapService.prepararInicio();
       BackendBootstrapService.instalarHooks();
-      OperacionesBackendBridge.install();
+
+      // Primero se hidratan los snapshots offline derivados del backend. Ningún
+      // módulo crea datos de negocio locales durante el arranque.
+      await LabelService.initialize();
+      LabelService.install();
+      GrueroBackendAdapter.install();
+      InventoryBackendAdapter.install();
+
       MapaCamarasLegacyIsolation.install();
       MapaProterBackendBridge.install();
       MapaPostTunelBackendBridge.install();
