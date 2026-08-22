@@ -121,6 +121,8 @@ const MapaInventarioController = {
       Number(item.cajasInventario)!==Number(item.cajas)||Number(item.kilosInventario)!==Number(item.kilos)
     );
     const saldoLogico=saldoLogicoDifiere?`<div><dt>Saldo lógico total</dt><dd>${item.cajas==null?'—':this.fmt(item.cajas)} cajas · ${item.kilos==null?'—':this.fmt(item.kilos)} kg</dd></div>`:'';
+    const targetPosition=item.posiciones.find(p=>p.camara===this.camera)||item.posiciones[0]||null;
+    const mapButton=`<button class="btn-primary" id="inventoryGoMap" ${targetPosition?'':'disabled'} title="${targetPosition?'Ir y resaltar esta ubicación física en el mapa':'El pallet todavía no tiene una posición física que ubicar'}">Ir a su ubicación en el mapa</button>`;
     const editButtons=this.canManage()
       ?(item.posiciones.length
         ?item.posiciones.map((p,index)=>`<button class="btn-secondary" data-edit-segment="${index}">Editar posición ${index+1} · ${this.esc(p.camara)} / Banda ${this.esc(p.banda)}</button>`).join('')
@@ -129,13 +131,28 @@ const MapaInventarioController = {
     root.innerHTML=`<div class="map-modal-backdrop"><section class="inventory-dialog"><header><div><b>${this.esc(item.codigoVisual||item.idLote)}</b><span>${this.esc(this.statusLabel(item.estadoInventario))}</span></div><button id="inventoryClose">×</button></header><div class="inventory-dialog-body">
       <dl class="map-detail-grid"><div><dt>ID Lote</dt><dd>${this.esc(item.idLote)}</dd></div><div><dt>Artículo</dt><dd>${this.esc(item.itemcode)} · ${this.esc(item.itemname)}</dd></div><div><dt>Cajas · ${this.esc(this.camera)}</dt><dd>${item.cajasInventario==null?'—':this.fmt(item.cajasInventario)}</dd></div><div><dt>Kilos · ${this.esc(this.camera)}</dt><dd>${item.kilosInventario==null?'—':this.fmt(item.kilosInventario)}</dd></div>${saldoLogico}<div><dt>Estado WMS</dt><dd>${this.esc(item.estadoWms)}</dd></div><div><dt>Calidad SAP</dt><dd>${this.esc(item.estadoSap)}</dd></div><div><dt>Condición WMS</dt><dd>${this.esc(item.condicionPrincipal||'Sin condición principal')}</dd></div><div><dt>Cámara SAP</dt><dd>${this.esc(item.camaraSap)}</dd></div><div><dt>Detector</dt><dd>${this.esc(item.detector)}</dd></div><div><dt>Posiciones WMS</dt><dd>${this.fmt(item.posicionesMapa)}${item.multiubicado?' · MULTIUBICADO':''}</dd></div>${positions}</dl>
       ${item.noExistePadre?'<div class="lote-duplicate">⚠ Este pallet está posicionado en WMS pero no existe actualmente en Lotes_en_Stock.</div>':''}
-      <div class="inventory-actions">${editButtons}${item.noExistePadre?'':`<button class="btn-secondary" id="inventoryFull">Ver ficha completa</button>`}</div>
+      <div class="inventory-actions">${mapButton}${editButtons}${item.noExistePadre?'':`<button class="btn-secondary" id="inventoryFull">Ver ficha completa</button>`}</div>
     </div></section></div>`;
     document.getElementById('inventoryClose').onclick=()=>root.innerHTML='';
     root.querySelector('.map-modal-backdrop').onclick=e=>{if(e.target===e.currentTarget)root.innerHTML='';};
+    document.getElementById('inventoryGoMap')?.addEventListener('click',()=>this.irAlMapa(item,targetPosition));
     document.getElementById('inventoryAssign')?.addEventListener('click',()=>this.asignar(item,null));
     root.querySelectorAll('[data-edit-segment]').forEach(btn=>btn.onclick=()=>this.asignar(item,item.posiciones[Number(btn.dataset.editSegment)]));
     document.getElementById('inventoryFull')?.addEventListener('click',()=>this.verFicha(item));
+  },
+
+  irAlMapa(item,posicion){
+    if(!posicion)return this.toast('El pallet todavía no posee una posición física que ubicar en el mapa.','error');
+    MapaController.pendingLocate={
+      idLote:item.idLote,
+      codigoVisual:item.codigoVisual||'',
+      camara:posicion.camara,
+      banda:String(posicion.banda),
+      posicion:Number(posicion.posicion),
+      altura:posicion.altura,
+      segmentoId:posicion.segmentoId??null
+    };
+    AppController.navigate(posicion.camara==='POST TUNEL'?'mapa_postunel':'mapa_vista');
   },
 
   verFicha(item){
