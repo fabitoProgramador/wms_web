@@ -14,7 +14,7 @@ window.WmsMapAdapter = {
 
   async fetchSnapshot() {
     // Una sola llamada trae ambas cámaras y un único catálogo. Evita descargar
-    // dos veces los mismos 1.062 pallets sólo para separar PROTER/Post Túnel.
+    // dos veces los mismos pallets sólo para separar PROTER/Post Túnel.
     const data = await MapaProterBackendModel.rpc('snapshot', {
       p_camara: 'TODOS',
       p_incluir_catalogo: true
@@ -66,6 +66,14 @@ window.WmsMapAdapter = {
         backendPostTunelGeneradoEn: generated
       }
     };
+  },
+
+  /**
+   * Resolución puntual para reconciliar pallets físicos que al guardarse no
+   * existían todavía en SAP. Es independiente de cámara: el ID es global.
+   */
+  async resolveCode(codigo) {
+    return MapaProterBackendModel.resolver(String(codigo || '').trim());
   },
 
   normalizarPosicion(value) {
