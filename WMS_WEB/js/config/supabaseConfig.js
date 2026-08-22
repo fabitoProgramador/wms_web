@@ -141,8 +141,7 @@ const SUPABASE_CONFIG = {
     usuarios: {
       administrar: 'wms_usuarios_administracion',
       historial: 'wms_usuario_admin_historial',
-      miPerfilActualizar: 'wms_mi_perfil_actualizar',
-      miPerfilCatalogos: 'wms_mi_perfil_catalogos'
+      miPerfilActualizar: 'wms_mi_perfil_actualizar'
     }
   },
 
