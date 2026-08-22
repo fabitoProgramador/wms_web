@@ -411,6 +411,55 @@ const AndenBackendIntegration = {
       return d;
     };
 
+    C.auditDetailText = function(entry = {}) {
+      const d = entry.detalle || {};
+      const lot = d.id_lote ? `Lote ${d.id_lote}` : '';
+      const value = v => v === null || v === undefined || v === '' ? '—' : String(v);
+      const fieldLabels = {
+        destino_id: 'Destino', transportista_id: 'Transportista', conductor_id: 'Conductor',
+        camion_id: 'Camión', rampla_id: 'Rampla', fecha_hora_despacho: 'Fecha/hora',
+        temperatura: 'Temperatura', observaciones: 'Observaciones'
+      };
+      switch (entry.evento) {
+        case 'CREADO':
+          return [d.referencia ? `Folio ${d.referencia}` : '', d.flujo_origen ? `Flujo ${d.flujo_origen}` : ''].filter(Boolean).join(' · ');
+        case 'PALLET_AGREGADO':
+          return [lot, d.estado_operativo ? `Estado ${d.estado_operativo}` : '', Number.isFinite(Number(d.segmentos_origen)) ? `Origen ${Number(d.segmentos_origen)} segmento(s)` : ''].filter(Boolean).join(' · ');
+        case 'PALLET_BLOQUEADO_ADMITIDO':
+          return [lot, 'Despacho permitido con estado BLOQUEADO'].filter(Boolean).join(' · ');
+        case 'PALLET_CARGADO':
+          return lot;
+        case 'PALLET_RETIRADO':
+          return [lot, d.motivo ? `Motivo: ${d.motivo}` : ''].filter(Boolean).join(' · ');
+        case 'PALLET_DEVUELTO_MAPA':
+          return [lot, d.motivo ? `Motivo: ${d.motivo}` : '', Number.isFinite(Number(d.desplazados_total)) ? `Desplazamientos: ${Number(d.desplazados_total)}` : '', d.sin_posicion_original ? 'Sin posición original registrada' : ''].filter(Boolean).join(' · ');
+        case 'REABIERTO':
+          return d.motivo ? `Motivo: ${d.motivo}` : '';
+        case 'DATOS_ACTUALIZADOS':
+          return Object.entries(d.cambios || {}).map(([key, change]) => `${fieldLabels[key] || key}: ${value(change?.de)} → ${value(change?.a)}`).join(' · ');
+        case 'CERRADO':
+        case 'RECERRADO': {
+          const blocked = Array.isArray(d.pallets_bloqueados) ? d.pallets_bloqueados.map(x => x?.id_lote).filter(Boolean) : [];
+          return [
+            Number.isFinite(Number(d.pallets)) ? `${Number(d.pallets)} pallet(s)` : '',
+            Number(d.pallets_bloqueados_total || 0) > 0 ? `${Number(d.pallets_bloqueados_total)} bloqueado(s): ${blocked.join(', ') || 'identificados en backend'}` : '0 bloqueados',
+            d.observacion_cierre ? `Observación: ${d.observacion_cierre}` : ''
+          ].filter(Boolean).join(' · ');
+        }
+        default:
+          return lot || '';
+      }
+    };
+
+    C.auditHtml = function(items) {
+      if (!items?.length) return '';
+      const rows = items.slice().reverse().map(a => {
+        const detail = this.auditDetailText(a);
+        return `<article><header><div><span><b>${this.esc(a.evento || 'EVENTO')}</b><small>${this.esc(a.usuario || a.rol || 'Sistema')} · ${this.esc(this.dateTime(a.fecha))}</small>${detail ? `<small>${this.esc(detail)}</small>` : ''}</span></div></header></article>`;
+      }).join('');
+      return `<section class="dock-card"><h3>Auditoría completa del despacho</h3><div class="load-history-list">${rows}</div></section>`;
+    };
+
     C.renderHistoryRecord = function() {
       if (this.historyMode !== 'modificar') return originalRenderHistoryRecord();
       const root = document.getElementById('dockContent'), d = this.historyDetail;
