@@ -65,6 +65,8 @@ const UserAdminModel = {
       rut:String(data.rut||'').trim()||null,
       rol_codigo:String(data.rol_codigo||'').trim().toUpperCase(),
       activo:data.activo!==false,
+      modo_acceso:String(data.modo_acceso||'INVITACION').trim().toUpperCase(),
+      password:String(data.password||''),
       motivo:String(data.motivo||'').trim()||'Alta de usuario desde Administración WMS'
     });
   },
@@ -72,6 +74,7 @@ const UserAdminModel = {
   actualizar(usuarioId,data={}) {
     return this.edge('update',{
       usuario_id:usuarioId,
+      email:String(data.email||'').trim().toLowerCase(),
       nombre:String(data.nombre||'').trim(),
       apellido_paterno:String(data.apellido_paterno||'').trim(),
       apellido_materno:String(data.apellido_materno||'').trim()||null,
@@ -79,6 +82,7 @@ const UserAdminModel = {
       area:String(data.area||'').trim(),
       rut:String(data.rut||'').trim()||null,
       rol_codigo:String(data.rol_codigo||'').trim().toUpperCase(),
+      nueva_password:String(data.nueva_password||''),
       motivo:String(data.motivo||'').trim()||'Actualización desde Administración WMS'
     });
   },
