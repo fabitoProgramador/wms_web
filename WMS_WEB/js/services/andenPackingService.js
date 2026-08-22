@@ -1,48 +1,80 @@
 /**
  * Packing List de Andén.
- * Reutiliza el layout Excel/PDF ya probado de AndenController, pero sustituye
- * su modelo legacy por los campos congelados del despacho Supabase.
+ * El frontend sólo da formato. Clasificación, subtotales y totales generales
+ * provienen de wms_anden_packing en Supabase.
  */
 const AndenPackingService = Object.create(AndenController);
 
-AndenPackingService.packingModel = function(record){
-  const items=(record?.pallets||[]).map((entry,index)=>{
-    const p=entry?._snapshot||entry||{};
-    const descripcion=String(p.descripcion||p.itemname||'Sin descripción SAP disponible');
-    const normal=descripcion.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
-    const quality=String(p.est_calidad||p.calidad_estado||p.estado_sap||'—');
-    const dm=p.detector_metales??p.detector_de??p.dm;
-    const reserve=p.reservado??p.u_rerservado;
-    const organic=p.organico_backend===true||normal.includes('ORGANIC');
-    return{
-      numero:index+1,
-      id:String(p.id_lote_real||p.id_lote||p.lote||''),
-      sku:String(p.numero_articulo||p.itemcode||p.articulo||''),
-      descripcion,
-      kilos:p.kilos==null?0:Number(p.kilos)||0,
-      cajas:p.cajas==null?0:Number(p.cajas)||0,
-      fecha:p.fecha_fabricacion||p.fecha_prod||'—',
-      calidad:quality,
-      infoCalidad:String(p.info_calidad??p.u_inf_cal??''),
-      infoGeneral:String(p.info_general??p.u_inf_g??''),
-      dm:dm===null||dm===undefined||String(dm).trim()===''?'—':String(dm),
-      reserva:reserve===null||reserve===undefined||String(reserve).trim()===''?'—':String(reserve),
-      organico:organic
-    };
+AndenPackingService.classLabel = function(value) {
+  const key = String(value || 'SIN_CLASIFICAR').toUpperCase();
+  if (key === 'ORGANICO') return 'ORGÁNICO';
+  if (key === 'CONVENCIONAL') return 'CONVENCIONAL';
+  if (key === 'AMBIGUA') return 'AMBIGUA';
+  return 'SIN CLASIFICAR';
+};
+
+AndenPackingService.packingModel = function(record) {
+  const raw = Array.isArray(record?.pallets) ? record.pallets : [];
+  const summary = record?.resumen_packing || {};
+  const backendGroups = Array.isArray(summary.grupos) ? summary.grupos : [];
+
+  const items = raw.map((p, index) => ({
+    numero: index + 1,
+    id: String(p.id_lote || ''),
+    sku: String(p.articulo || ''),
+    descripcion: String(p.descripcion || 'Sin descripción SAP disponible'),
+    kilos: p.kilos == null ? 0 : Number(p.kilos) || 0,
+    cajas: p.cajas == null ? 0 : Number(p.cajas) || 0,
+    fecha: p.fecha_fabricacion || '—',
+    calidad: String(p.estado_calidad || p.estado_sap || '—'),
+    infoCalidad: String(p.info_calidad ?? ''),
+    infoGeneral: String(p.info_general ?? ''),
+    dm: p.dm == null || String(p.dm).trim() === '' ? '—' : String(p.dm),
+    reserva: p.reservado == null || String(p.reservado).trim() === '' ? '—' : String(p.reservado),
+    clasificacion: String(p.clasificacion_origen || 'SIN_CLASIFICAR').toUpperCase()
+  }));
+
+  const groups = {};
+  backendGroups.forEach(group => {
+    const classKey = String(group.clasificacion || 'SIN_CLASIFICAR').toUpperCase();
+    const label = this.classLabel(classKey);
+    const bySku = new Map();
+    (group.articulos || []).forEach(article => {
+      const sku = String(article.articulo || '');
+      const articleItems = items.filter(item => item.clasificacion === classKey && item.sku === sku);
+      bySku.set(sku, {
+        descripcion: article.descripcion || articleItems[0]?.descripcion || 'Sin descripción SAP disponible',
+        items: articleItems,
+        kilos: Number(article.subtotal_kilos || 0),
+        cajas: Number(article.subtotal_cajas || 0),
+        pallets: Number(article.pallets || articleItems.length)
+      });
+    });
+    groups[label] = bySku;
   });
 
-  const groups={CONVENCIONAL:new Map(),'ORGÁNICO':new Map()};
-  items.forEach(item=>{
-    const origin=item.organico?'ORGÁNICO':'CONVENCIONAL',bySku=groups[origin];
-    if(!bySku.has(item.sku))bySku.set(item.sku,{descripcion:item.descripcion,items:[],kilos:0,cajas:0});
-    const group=bySku.get(item.sku);group.items.push(item);group.kilos+=item.kilos;group.cajas+=item.cajas;
-  });
+  // El contrato remoto siempre trae grupos. Si una versión antigua del RPC no
+  // los entrega, se bloquea el cálculo silencioso: no se inventan subtotales.
+  if (!backendGroups.length && items.length) {
+    const bySku = new Map();
+    items.forEach(item => {
+      if (!bySku.has(item.sku)) bySku.set(item.sku, { descripcion: item.descripcion, items: [], kilos: 0, cajas: 0, pallets: 0 });
+      bySku.get(item.sku).items.push(item);
+    });
+    groups['SIN CLASIFICAR'] = bySku;
+  }
 
-  return{
-    info:this.packingInfo(record),
-    headers:['N°','ID LOTE','N° ARTÍCULO','DESCRIPCIÓN DEL ARTÍCULO','KG (NETO)','CAJAS','FECHA FABRICACIÓN','EST CALIDAD','INFO. CALIDAD','INFO. GENERAL','DM','RESERVA'],
+  const total = summary.total_general || {};
+  return {
+    info: this.packingInfo(record),
+    headers: ['N°', 'ID LOTE', 'N° ARTÍCULO', 'DESCRIPCIÓN DEL ARTÍCULO', 'KG (NETO)', 'CAJAS', 'FECHA FABRICACIÓN', 'EST CALIDAD', 'INFO. CALIDAD', 'INFO. GENERAL', 'DM', 'RESERVA'],
     items,
     groups,
-    totals:{pallets:items.length,kilos:items.reduce((sum,item)=>sum+item.kilos,0),cajas:items.reduce((sum,item)=>sum+item.cajas,0)}
+    totals: {
+      pallets: Number(total.pallets ?? items.length),
+      kilos: Number(total.kilos ?? 0),
+      cajas: Number(total.cajas ?? 0)
+    },
+    alerts: summary.alertas_clasificacion || {}
   };
 };

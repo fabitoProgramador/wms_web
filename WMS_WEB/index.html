@@ -58,6 +58,7 @@
   <script src="js/models/mapaInventarioModel.js"></script>
   <script src="js/models/mapaProterBackendModel.js"></script>
   <script src="js/models/mapaPostTunelBackendModel.js"></script>
+  <script src="js/models/andenBackendModel.js"></script>
   <script src="js/services/grueroCodeResolver.js"></script>
   <script src="js/services/mapaOfflineService.js"></script>
   <!-- PROTER y POST TÚNEL consumen Supabase; MapaModel sólo conserva shape/render y cache offline explícita. -->
@@ -121,6 +122,9 @@
   <script src="js/controllers/stockController.js"></script>
   <script src="js/controllers/labelController.js"></script>
   <script src="js/controllers/andenController.js"></script>
+  <script src="js/services/andenPackingService.js"></script>
+  <script src="js/controllers/andenBackendController.js"></script>
+  <script src="js/services/andenBackendIntegration.js"></script>
   <script src="js/controllers/operacionesController.js"></script>
   <script src="js/controllers/operacionesBackendController.js"></script>
   <script src="js/controllers/reportesController.js"></script>
@@ -146,6 +150,7 @@
       MapaPostTunelBackendBridge.install();
       MapaCamarasActionGuard.install();
       MapaSubmodulosBackendBridge.install();
+      AndenBackendIntegration.install();
       NavigationPermissionService.install(AppController);
       AppController.init();
     });
