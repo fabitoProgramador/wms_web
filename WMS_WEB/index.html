@@ -56,7 +56,6 @@
   <script src="js/models/andenBackendModel.js"></script>
   <script src="js/services/grueroCodeResolver.js"></script>
   <script src="js/services/mapaOfflineService.js"></script>
-  <script src="js/services/mapaCamarasLegacyIsolation.js"></script>
   <script src="js/services/mapaCamarasBackendAdapter.js"></script>
   <script src="js/services/grueroBackendAdapter.js"></script>
 
@@ -130,7 +129,7 @@
   <script src="js/controllers/userAdminController.js"></script>
   <script src="js/controllers/appController.js"></script>
 
-  <!-- Adaptadores de Mapa todavía requeridos por el visor principal. -->
+  <!-- Adaptadores activos del visor de Mapa mientras conserva su UI histórica. -->
   <script src="js/services/mapaProterBackendBridge.js"></script>
   <script src="js/services/mapaPostTunelBackendBridge.js"></script>
   <script src="js/services/mapaCamarasActionGuard.js"></script>
@@ -149,7 +148,6 @@
       GrueroBackendAdapter.install();
       InventoryBackendAdapter.install();
 
-      MapaCamarasLegacyIsolation.install();
       MapaProterBackendBridge.install();
       MapaPostTunelBackendBridge.install();
       MapaCamarasActionGuard.install();
