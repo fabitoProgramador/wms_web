@@ -13,6 +13,7 @@ const UserAdminController = {
   fmtDate(v){if(!v)return '—';try{return new Date(v).toLocaleString('es-CL');}catch(_){return String(v);}},
   notify(message,type='success'){return NotificationService.show(message,{type});},
   puedeGestionar(){return Boolean(this.data?.permisos?.puede_gestionar);},
+  esAdministrador(){return String(this.data?.actor?.rol_codigo||'').toUpperCase()==='ADMINISTRADOR';},
 
   init(container){
     this.container=container;this.tab='list';this.editingId=null;this.filtros={buscar:'',estado:'TODOS',rol:'TODOS'};this.data=null;this.requestId+=1;this.cargar();
@@ -41,7 +42,7 @@ const UserAdminController = {
   render(){
     if(!this.container)return;
     if(this.loading&&!this.data){this.container.innerHTML='<div class="panel-empty">Consultando usuarios, roles y permisos en Supabase…</div>';return;}
-    if(!this.data){return;}
+    if(!this.data)return;
     const manage=this.puedeGestionar();
     if(!manage&&this.data?.permisos?.puede_ver!==true){this.container.innerHTML='<article class="user-admin-denied"><span>🔒</span><div><h2>Administración restringida</h2><p>Tu rol no posee permiso usuarios.ver.</p></div></article>';return;}
     if(!manage&&this.tab!=='list')this.tab='list';
@@ -76,9 +77,8 @@ const UserAdminController = {
   fmtCount(v){return Number(v||0).toLocaleString('es-CL');},
   statCard(icon,label,value,tone){return `<article class="user-stat ${tone}"><span>${icon}</span><div><small>${label}</small><strong>${this.fmtCount(value)}</strong></div></article>`;},
 
-  renderTable(users){return `<div class="user-admin-table-shell"><table class="user-admin-table"><thead><tr><th>Usuario</th><th>Cargo</th><th>Área</th><th>Rol WMS</th><th>Estado</th><th>Actualizado</th><th>Acciones</th></tr></thead><tbody>${users.map(u=>`<tr><td><div class="user-cell"><span>${AppController.initials(u.nombre_completo||u.nombre)}</span><div><strong>${this.esc(u.nombre_completo||u.nombre)}</strong><small>${this.esc(u.email||'—')} · ${this.esc(u.rut||'Sin RUT')}</small></div></div></td><td>${this.esc(u.cargo||'Sin cargo')}</td><td>${this.esc(u.area||'—')}</td><td><span class="access-badge user">${this.esc(u.rol_nombre||u.rol_codigo||'—')}</span></td><td>${this.statusBadge(u)}</td><td>${this.esc(this.fmtDate(u.actualizado_en))}</td><td>${this.actions(u)}</td></tr>`).join('')}</tbody></table></div>`;},
-
-  renderMobileCards(users){return `<div class="user-admin-mobile-list">${users.map(u=>`<article class="user-mobile-card"><header><div class="user-cell"><span>${AppController.initials(u.nombre_completo||u.nombre)}</span><div><strong>${this.esc(u.nombre_completo||u.nombre)}</strong><small>${this.esc(u.email||'—')}</small></div></div>${this.statusBadge(u)}</header><dl><div><dt>RUT</dt><dd>${this.esc(u.rut||'—')}</dd></div><div><dt>Cargo</dt><dd>${this.esc(u.cargo||'—')}</dd></div><div><dt>Área</dt><dd>${this.esc(u.area||'—')}</dd></div><div><dt>Rol WMS</dt><dd>${this.esc(u.rol_nombre||u.rol_codigo||'—')}</dd></div></dl><footer>${this.actions(u)}</footer></article>`).join('')}</div>`;},
+  renderTable(users){return `<div class="user-admin-table-shell"><table class="user-admin-table"><thead><tr><th>Usuario</th><th>Cargo</th><th>Área</th><th>Acceso</th><th>Estado</th><th>Actualizado</th><th>Acciones</th></tr></thead><tbody>${users.map(u=>`<tr><td><div class="user-cell"><span>${AppController.initials(u.nombre_completo||u.nombre)}</span><div><strong>${this.esc(u.nombre_completo||u.nombre)}</strong><small>${this.esc(u.email||'—')} · ${this.esc(u.rut||'Sin RUT')}</small></div></div></td><td>${this.esc(u.cargo||'Sin cargo')}</td><td>${this.esc(u.area||'—')}</td><td><span class="access-badge user">${this.esc(u.rol_nombre||u.rol_codigo||'—')}</span></td><td>${this.statusBadge(u)}</td><td>${this.esc(this.fmtDate(u.actualizado_en))}</td><td>${this.actions(u)}</td></tr>`).join('')}</tbody></table></div>`;},
+  renderMobileCards(users){return `<div class="user-admin-mobile-list">${users.map(u=>`<article class="user-mobile-card"><header><div class="user-cell"><span>${AppController.initials(u.nombre_completo||u.nombre)}</span><div><strong>${this.esc(u.nombre_completo||u.nombre)}</strong><small>${this.esc(u.email||'—')}</small></div></div>${this.statusBadge(u)}</header><dl><div><dt>RUT</dt><dd>${this.esc(u.rut||'—')}</dd></div><div><dt>Cargo</dt><dd>${this.esc(u.cargo||'—')}</dd></div><div><dt>Área</dt><dd>${this.esc(u.area||'—')}</dd></div><div><dt>Acceso</dt><dd>${this.esc(u.rol_nombre||u.rol_codigo||'—')}</dd></div></dl><footer>${this.actions(u)}</footer></article>`).join('')}</div>`;},
 
   statusBadge(u){return `<span class="status-badge ${u.activo?'active':'inactive'}"><i></i>${u.activo?'Activo':'Inactivo'}</span>`;},
   actions(u){
@@ -97,27 +97,41 @@ const UserAdminController = {
     return `<div class="user-edit-picker"><label>Usuario a modificar</label><select onchange="UserAdminController.selectEdit(this.value)">${editable.map(u=>`<option value="${this.esc(u.usuario_id)}" ${String(u.usuario_id)===String(this.editingId)?'selected':''}>${this.esc(u.nombre_completo||u.nombre)} · ${this.esc(u.email)}</option>`).join('')}</select></div>${user&&user.puede_editar?this.renderForm('edit',user):'<div class="user-admin-empty"><p>No hay usuarios que tu rol pueda modificar.</p></div>'}`;
   },
 
+  credentialSelector(){
+    if(!this.esAdministrador())return `<input type="hidden" name="modo_acceso" value="INVITACION"><div class="credential-mode-note"><i class="wi wi-mail"></i><div><strong>Invitación por correo</strong><small>Tu rol puede crear usuarios mediante invitación. Sólo Administrador puede definir contraseñas manualmente.</small></div></div>`;
+    return `<div class="credential-mode-block wide"><div class="credential-mode-head"><div><span>FORMA DE ACCESO <b>*</b></span><small>Elige cómo recibirá sus credenciales el nuevo usuario.</small></div></div><div class="credential-mode-switch" role="radiogroup" aria-label="Forma de acceso"><label><input type="radio" name="modo_acceso" value="INVITACION" checked onchange="UserAdminController.toggleCredentialMode(this.value)"><span><i class="wi wi-mail"></i><b>Invitación</b><small>Recibe correo para crear su clave</small></span></label><label><input type="radio" name="modo_acceso" value="MANUAL" onchange="UserAdminController.toggleCredentialMode(this.value)"><span><i class="wi wi-lock"></i><b>Contraseña manual</b><small>El administrador define la clave</small></span></label></div></div>`;
+  },
+
   renderForm(mode,user={}){
     const editing=mode==='edit',data=editing?user:{activo:true,area:'',rol_codigo:'USUARIO'};
     const availableRoles=this.roles().filter(r=>r.asignable||r.codigo===data.rol_codigo);
     return `<form class="user-admin-form" onsubmit="UserAdminController.save(event,'${mode}')" novalidate>
       <header><div><span class="form-icon">${editing?'✎':'+'}</span><div><small>${editing?'EDICIÓN BACKEND':'NUEVA IDENTIDAD AUTH + WMS'}</small><h3>${editing?'Modificar usuario':'Agregar usuario'}</h3></div></div>${editing?`<span class="user-form-id">${this.esc(user.usuario_id)}</span>`:'<span class="user-form-id">ID Auth automático</span>'}</header>
       <div class="user-admin-form-grid">
-        <label><span>Correo de identidad <b>*</b></span><input name="email" type="email" value="${this.esc(data.email||'')}" ${editing?'readonly':''} required autocomplete="email"><small class="field-help">${editing?'El correo Auth no se cambia desde esta ficha.':'Supabase enviará una invitación a este correo.'}</small></label>
+        <label><span>Correo <b>*</b></span><input name="email" type="email" value="${this.esc(data.email||'')}" required autocomplete="email"><small class="field-help">${editing?'Actualiza el correo de acceso en Auth y WMS.':'Se usa como identidad de acceso y destino de invitación.'}</small></label>
         ${this.field('Nombre','nombre',data.nombre,true,'given-name')}
         ${this.field('Apellido paterno','apellido_paterno',data.apellido_paterno,true,'family-name')}
         ${this.field('Apellido materno','apellido_materno',data.apellido_materno,false,'additional-name')}
         ${this.field('Cargo','cargo',data.cargo,false,'organization-title','Ej.: Supervisor de turno')}
         ${this.field('RUT','rut',data.rut,false,'off','Ej.: 20.316.609-5')}
         <label><span>Área <b>*</b></span><select name="area" required><option value="">Seleccionar área</option>${this.areas().map(a=>`<option value="${this.esc(a)}" ${a===data.area?'selected':''}>${this.esc(a)}</option>`).join('')}</select></label>
-        <label><span>Rol WMS <b>*</b></span><select name="rol_codigo" required>${availableRoles.map(r=>`<option value="${this.esc(r.codigo)}" ${r.codigo===data.rol_codigo?'selected':''}>${this.esc(r.nombre)} · ${this.esc(r.codigo)}</option>`).join('')}</select><small class="field-help">Los permisos los determina RBAC en Supabase.</small></label>
+        <label><span>Nivel de usuario <b>*</b></span><select name="rol_codigo" required>${availableRoles.map(r=>`<option value="${this.esc(r.codigo)}" ${r.codigo===data.rol_codigo?'selected':''}>${this.esc(r.nombre)} · ${this.esc(r.codigo)}</option>`).join('')}</select><small class="field-help">Los permisos los determina RBAC en Supabase.</small></label>
+        ${!editing?this.credentialSelector():''}
+        ${!editing&&this.esAdministrador()?`<label id="manualPasswordField" class="wide credential-password-field" hidden><span>Contraseña <b>*</b></span><input name="password" type="password" minlength="8" autocomplete="new-password" disabled placeholder="Mínimo 8 caracteres"><small class="field-help">No se almacena en WMS ni auditoría; se envía sólo a Supabase Auth.</small></label>`:''}
+        ${editing&&this.esAdministrador()?`<label class="wide credential-password-field"><span>Nueva contraseña del usuario</span><input name="nueva_password" type="password" minlength="8" autocomplete="new-password" placeholder="Dejar en blanco para conservar"><small class="field-help">Sólo Administrador. El sistema audita el cambio, nunca la contraseña.</small></label>`:''}
         <label class="wide"><span>Motivo / observación</span><input name="motivo" placeholder="Opcional; queda en auditoría"></label>
       </div>
-      ${!editing?`<label class="user-active-switch"><input type="checkbox" name="activo" checked><span aria-hidden="true"></span><div><strong>Crear usuario activo</strong><small>Si queda inactivo, Auth también será bloqueado.</small></div></label>`:''}
+      ${!editing?`<label class="user-active-switch"><input type="checkbox" name="activo" checked><span aria-hidden="true"></span><div><strong>Usuario activo</strong><small>Si se crea inactivo, Auth también queda bloqueado.</small></div></label>`:''}
       ${editing?`<div class="user-form-meta"><span>Creado: <b>${this.esc(this.fmtDate(data.creado_en))}</b></span><span>Última modificación: <b>${this.esc(this.fmtDate(data.actualizado_en))}</b></span><span>Estado: <b>${data.activo?'ACTIVO':'INACTIVO'}</b></span></div>`:''}
       <p class="user-admin-error" role="alert" hidden></p>
-      <div class="user-admin-form-actions"><button type="button" class="btn-secondary" onclick="UserAdminController.setTab('list')">Cancelar</button><button type="submit" class="btn-primary">${editing?'Guardar modificaciones':'Crear e invitar usuario'}</button></div>
+      <div class="user-admin-form-actions"><button type="button" class="btn-secondary" onclick="UserAdminController.setTab('list')">Cancelar</button><button type="submit" class="btn-primary">${editing?'Guardar modificaciones':'Registrar usuario'}</button></div>
     </form>`;
+  },
+
+  toggleCredentialMode(mode){
+    const manual=String(mode||'').toUpperCase()==='MANUAL';
+    const field=document.getElementById('manualPasswordField');if(!field)return;
+    field.hidden=!manual;const input=field.querySelector('input[name=password]');if(input){input.disabled=!manual;input.required=manual;if(!manual)input.value='';if(manual)requestAnimationFrame(()=>input.focus());}
   },
 
   field(label,name,value='',required=false,autocomplete='off',placeholder=''){return `<label><span>${label}${required?' <b>*</b>':''}</span><input name="${name}" value="${this.esc(value||'')}" autocomplete="${autocomplete}" ${required?'required':''} placeholder="${this.esc(placeholder)}"></label>`;},
@@ -127,13 +141,22 @@ const UserAdminController = {
   async save(event,mode){
     event.preventDefault();const form=event.currentTarget,error=form.querySelector('.user-admin-error');error.hidden=true;
     if(!form.reportValidity())return;
-    const f=new FormData(form),data={email:f.get('email'),nombre:f.get('nombre'),apellido_paterno:f.get('apellido_paterno'),apellido_materno:f.get('apellido_materno'),cargo:f.get('cargo'),area:f.get('area'),rut:f.get('rut'),rol_codigo:f.get('rol_codigo'),activo:f.has('activo'),motivo:f.get('motivo')};
+    const f=new FormData(form),data={email:f.get('email'),nombre:f.get('nombre'),apellido_paterno:f.get('apellido_paterno'),apellido_materno:f.get('apellido_materno'),cargo:f.get('cargo'),area:f.get('area'),rut:f.get('rut'),rol_codigo:f.get('rol_codigo'),activo:f.has('activo'),motivo:f.get('motivo'),modo_acceso:f.get('modo_acceso')||'INVITACION',password:f.get('password')||''};
     const submit=form.querySelector('button[type=submit]');submit.disabled=true;
     try{
-      const result=mode==='edit'?await UserAdminModel.actualizar(this.editingId,data):await UserAdminModel.crear(data);
-      this.tab='list';this.editingId=null;this.filtros={buscar:'',estado:'TODOS',rol:'TODOS'};await this.cargar();
-      this.notify(mode==='edit'?'Usuario actualizado y auditado en Supabase.':`Usuario creado en Auth/WMS${result?.invitation_sent?' · invitación enviada':''}.`);
+      let result;
+      if(mode==='edit'){
+        result=await UserAdminModel.actualizar(this.editingId,data);
+        const nuevaPassword=String(f.get('nueva_password')||'');
+        if(nuevaPassword){
+          try{await UserAdminModel.cambiarPassword(this.editingId,nuevaPassword);}catch(e){error.textContent=`Los datos del usuario se guardaron, pero no fue posible cambiar la contraseña: ${e.message||'error de Auth'}`;error.hidden=false;submit.disabled=false;return;}
+        }
+      }else result=await UserAdminModel.crear(data);
+
       const current=UserModel.getCurrentUser();if(result?.user?.usuario_id===current?.id){const s=await SupabaseService.sesionActual();if(s.ok){const ui=SupabaseService.usuarioInterfaz(s.datos);UserModel.setCurrentUser(ui);AppController.updateUserChrome(ui);}}
+      this.tab='list';this.editingId=null;this.filtros={buscar:'',estado:'TODOS',rol:'TODOS'};await this.cargar();
+      if(mode==='edit')this.notify('Usuario actualizado y auditado en Supabase.');
+      else this.notify(result?.invitation_sent?'Usuario creado · invitación enviada automáticamente.':'Usuario creado con contraseña definida por Administrador.');
     }catch(e){error.textContent=e.message||'No fue posible guardar el usuario.';error.hidden=false;submit.disabled=false;}
   },
 
