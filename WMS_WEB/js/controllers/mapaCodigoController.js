@@ -13,6 +13,7 @@ const MapaCodigoController = {
   esc(v){ return SeguridadService.escaparHtml(v); },
   fmt(v){ return Number(v||0).toLocaleString('es-CL'); },
   toast(text,type='success'){ return NotificationService.show(text,{type}); },
+  canManage(){ return UserModel.hasPermission('articulos.gestionar'); },
 
   init(container){
     this.container=container;
@@ -64,7 +65,7 @@ const MapaCodigoController = {
       }
     }catch(error){
       if(req!==this.requestId||!this.container)return;
-      const msg=error?.permiso?'Tu sesión no posee permiso para administrar el catálogo visual.'
+      const msg=error?.permiso?'Tu sesión no posee permiso para consultar el catálogo visual.'
         :error?.red?'No fue posible conectar con Supabase. Las letras visuales no usan respaldo local.'
         :(error?.message||'No fue posible consultar el catálogo visual.');
       const root=document.getElementById('codeTable');
@@ -81,7 +82,7 @@ const MapaCodigoController = {
     set('codeTotal',this.fmt(r.articulos));
     set('codeAssigned',this.fmt(r.asignados));
     set('codePending',this.fmt(r.pendientes));
-    set('codeResultCount',`${this.fmt(this.data.items.length)} resultado(s) · siguiente letra libre: ${this.data.siguienteLetra||'—'}`);
+    set('codeResultCount',`${this.fmt(this.data.items.length)} resultado(s) · siguiente letra libre: ${this.data.siguienteLetra||'—'}${this.canManage()?'':' · solo lectura'}`);
     const root=document.getElementById('codeTable');if(!root)return;
     root.innerHTML=`<div class="code-card-list">${this.data.items.length?this.data.items.map(item=>this.card(item)).join(''):'<div class="ops-empty">Ningún artículo coincide con la búsqueda.</div>'}</div>${this.historial()}`;
     root.querySelectorAll('.code-edit').forEach(btn=>btn.onclick=()=>this.editar(btn.dataset.art));
@@ -89,7 +90,7 @@ const MapaCodigoController = {
   },
 
   card(item){
-    if(this.editingCodigo===item.codigo)return this.formCard(item);
+    if(this.editingCodigo===item.codigo&&this.canManage())return this.formCard(item);
     const letra=item.letra;
     return `<article class="code-card ${letra?'assigned':'pending'}" data-art="${this.esc(item.codigo)}">
       <div class="code-card-head">
@@ -102,10 +103,7 @@ const MapaCodigoController = {
         <span><small>EN MAPA</small><b>${this.fmt(item.palletsMapa)}</b></span>
       </div>
       ${item.palletsNoExiste?`<div class="lote-duplicate">⚠ ${this.fmt(item.palletsNoExiste)} pallet(s) existen en Mapa WMS pero no en el padre SAP.</div>`:''}
-      <div class="code-card-actions">
-        <button class="code-edit" data-art="${this.esc(item.codigo)}"><i class="wi wi-edit"></i>${letra?'Editar letra':'Asignar letra'}</button>
-        ${letra?`<button class="code-release" data-art="${this.esc(item.codigo)}"><i class="wi wi-unlink"></i>Liberar</button>`:''}
-      </div>
+      <div class="code-card-actions">${this.canManage()?`<button class="code-edit" data-art="${this.esc(item.codigo)}"><i class="wi wi-edit"></i>${letra?'Editar letra':'Asignar letra'}</button>${letra?`<button class="code-release" data-art="${this.esc(item.codigo)}"><i class="wi wi-unlink"></i>Liberar</button>`:''}`:'<small>Consulta de solo lectura según permisos de la sesión.</small>'}</div>
     </article>`;
   },
 
@@ -123,6 +121,7 @@ const MapaCodigoController = {
   },
 
   editar(codigo){
+    if(!this.canManage())return;
     this.editingCodigo=codigo;
     this.render();
     requestAnimationFrame(()=>document.querySelector(`.code-card[data-art="${CSS.escape(codigo)}"] input[name=letter]`)?.focus());
@@ -132,6 +131,7 @@ const MapaCodigoController = {
 
   async guardar(event,codigo){
     event.preventDefault();
+    if(!this.canManage())return this.toast('Tu sesión no posee permiso para gestionar códigos visuales.','error');
     const form=event.currentTarget;
     const letter=String(form.elements.letter.value||'').trim().toUpperCase();
     const motivo=String(form.elements.motivo.value||'').trim();
@@ -150,6 +150,7 @@ const MapaCodigoController = {
   },
 
   async liberar(codigo){
+    if(!this.canManage())return this.toast('Tu sesión no posee permiso para gestionar códigos visuales.','error');
     const item=this.data?.items.find(x=>x.codigo===codigo);if(!item?.letra)return;
     if(!window.confirm(`¿Liberar la letra ${item.letra} del artículo ${codigo}?`))return;
     const motivo=window.prompt('Motivo de liberación (opcional):','Liberación manual de letra visual');
