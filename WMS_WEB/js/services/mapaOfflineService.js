@@ -8,7 +8,7 @@
 const MapaOfflineService = {
   DB:'wms_map_offline', VERSION:1, SNAPSHOTS:'snapshots', MOVEMENTS:'movements', CONFLICTS:'conflicts', ACTIVE:'active',
   initialized:false, hasSnapshot:false, backendProterReady:false, backendPostTunelReady:false, backendMapReady:false,
-  metadata:null, reachable:false, _saveTimer:null, _syncing:null, _bound:false,
+  metadata:null, reachable:false, _saveTimer:null, _syncing:null, _bound:false, _reconcileTimer:null, _reconciling:null,
   palletFields:['id','lote','articulo','descripcion','numero_pallet','numero_articulo','id_lote_real','cajas','kilos','cajas_logicas','kilos_logicos','cajas_posicion','kilos_posicion','segmento_id','estado','estado_mapa','estado_wms','estado_wms_registrado','estado_sap','ubicacion','banda','posicion','altura','repetido','repetido_id_lote','repetido_codigo_visual','multiubicado','no_existe','no_existe_padre','fecha_ingreso','fecha_admision','fecha_recepcion','fecha_fabricacion','detector_metales','info_calidad','info_general','motivo_decision','reservado','fecha_pedido','calidad_estado','condicion_principal','condiciones_wms','condiciones_adicionales','decision','modalidad','flags','whscode','whsname','almacen_sap','diferencia_almacen_mapa','ultima_auditoria','codigo_visual_backend','codigo_visual_legible_backend','sin_codigo_visual','cajas_asociadas','_codigo_visual_manual','pendiente_verificacion','_backend_proter','_backend_postunel','_backend_catalog','actualizado_en'],
 
   open(){return new Promise((resolve,reject)=>{if(!window.indexedDB)return reject(new Error('IndexedDB no disponible'));const request=window.indexedDB.open(this.DB,this.VERSION);request.onupgradeneeded=()=>{const db=request.result;if(!db.objectStoreNames.contains(this.SNAPSHOTS))db.createObjectStore(this.SNAPSHOTS,{keyPath:'id'});if(!db.objectStoreNames.contains(this.MOVEMENTS))db.createObjectStore(this.MOVEMENTS,{keyPath:'id'});if(!db.objectStoreNames.contains(this.CONFLICTS))db.createObjectStore(this.CONFLICTS,{keyPath:'id'});};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});},
@@ -91,9 +91,41 @@ const MapaOfflineService = {
 
   bind(){
     if(this._bound)return;this._bound=true;
-    window.addEventListener('online',async()=>{const was=this.reachable;await this.probeOnline();this.emit('online');if(!was&&this.reachable)this.sync();});
+    window.addEventListener('online',async()=>{const was=this.reachable;await this.probeOnline();this.emit('online');if(!was&&this.reachable){await this.sync();this.reconcileUnknowns();}});
     window.addEventListener('offline',()=>{this.reachable=false;this.emit('offline');});
-    this._probeTimer=setInterval(async()=>{const was=this.reachable;await this.probeOnline();if(was!==this.reachable){this.emit(this.reachable?'server-online':'server-offline');if(this.reachable)this.sync();}},8000);
+    this._probeTimer=setInterval(async()=>{const was=this.reachable;await this.probeOnline();if(was!==this.reachable){this.emit(this.reachable?'server-online':'server-offline');if(this.reachable){await this.sync();this.reconcileUnknowns();}}},8000);
+    this._reconcileTimer=setInterval(()=>{if(this.reachable)this.reconcileUnknowns();},60000);
+  },
+
+  unknownIds(){
+    const ids=new Set();
+    MapaModel.getPallets().forEach(p=>{const id=String(p.id_lote_real||p.lote||'').trim();if(p?.no_existe_padre===true&&/^\d{12,13}$/.test(id))ids.add(id);});
+    return [...ids];
+  },
+
+  /**
+   * SAP puede consolidar un pallet horas después de que la posición física ya
+   * fue guardada. Cada minuto sólo se consultan IDs actualmente NO EXISTE; si
+   * uno ya apareció en SAP, se baja un único snapshot completo y la misma
+   * celda se enriquece con artículo, descripción, estados, kilos, cajas, etc.
+   */
+  async reconcileUnknowns(){
+    if(this._reconciling)return this._reconciling;
+    this._reconciling=(async()=>{
+      if(!this.reachable||!window.WmsMapAdapter?.resolveCode)return{ok:false,offline:!this.reachable};
+      const ids=this.unknownIds();
+      if(!ids.length)return{ok:true,checked:0,reconciled:0};
+      let reconciled=0,checked=0;
+      for(const id of ids.slice(0,12)){
+        const result=await window.WmsMapAdapter.resolveCode(id);
+        checked++;
+        if(result?.red)break;
+        if(result?.ok&&result?.pallet&&result.pallet.no_existe_padre===false){reconciled++;break;}
+      }
+      if(reconciled){await this.refreshFromServer();this.emit('sap-reconciled');}
+      return{ok:true,checked,reconciled};
+    })().finally(()=>{this._reconciling=null;});
+    return this._reconciling;
   },
 
   async record(action){
