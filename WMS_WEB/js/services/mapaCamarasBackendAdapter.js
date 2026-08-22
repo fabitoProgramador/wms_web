@@ -13,26 +13,29 @@ window.WmsMapAdapter = {
   },
 
   async fetchSnapshot() {
-    const [proter, post] = await Promise.all([
-      MapaProterBackendModel.snapshot(),
-      MapaPostTunelBackendModel.snapshot()
-    ]);
-
-    if (!proter?.ok) throw new Error(proter?.error || 'No fue posible obtener el snapshot PROTER.');
-    if (!post?.ok) throw new Error(post?.error || 'No fue posible obtener el snapshot POST TÚNEL.');
-
-    // El catálogo viene en ambos RPC y es idéntico. Se conserva una sola copia.
-    const catalogById = new Map();
-    [...proter.catalogo, ...post.catalogo].forEach(p => {
-      const id = PalletModel.idLoteReal(p);
-      if (id && !catalogById.has(id)) catalogById.set(id, p);
+    // Una sola llamada trae ambas cámaras y un único catálogo. Evita descargar
+    // dos veces los mismos 1.062 pallets sólo para separar PROTER/Post Túnel.
+    const data = await MapaProterBackendModel.rpc('snapshot', {
+      p_camara: 'TODOS',
+      p_incluir_catalogo: true
     });
+    if (data?.ok === false) throw new Error(data.error || 'No fue posible obtener el snapshot de cámaras.');
+    if (!data || !Array.isArray(data.segmentos) || !Array.isArray(data.catalogo_pallets)) {
+      throw new Error('Supabase entregó un snapshot de cámaras incompleto.');
+    }
 
-    const pallets = [
-      ...catalogById.values(),
-      ...proter.segmentos,
-      ...post.segmentos
-    ];
+    MapaProterBackendModel._snapshot = data;
+    MapaPostTunelBackendModel._snapshot = data;
+
+    const proterSegments = data.segmentos
+      .filter(row => String(row.camara || '').toUpperCase() === 'PROTER')
+      .map(row => MapaProterBackendModel.segmentoPallet(row));
+    const postSegments = data.segmentos
+      .filter(row => String(row.camara || '').toUpperCase() === 'POST TUNEL')
+      .map(row => MapaPostTunelBackendModel.segmentoPallet(row));
+    const catalog = data.catalogo_pallets.map(row => MapaProterBackendModel.catalogoPallet(row));
+
+    const pallets = [...catalog, ...proterSegments, ...postSegments];
 
     // Estado visual sí puede persistir, pero nunca referencias a pallets demo o
     // a la antigua semántica "manual" que quitaba pallets de una base local.
@@ -45,6 +48,8 @@ window.WmsMapAdapter = {
     mapState.manuals.embarque = [];
     mapState.manuals.postunel = [];
 
+    const version = data.snapshot_version || null;
+    const generated = data.generado_en || null;
     return {
       pallets,
       mapState,
@@ -52,12 +57,13 @@ window.WmsMapAdapter = {
         backendMap: true,
         backendProter: true,
         backendPostTunel: true,
-        backendProterCacheKey: proter.cacheKey,
-        backendPostTunelCacheKey: post.cacheKey,
-        backendProterVersion: proter.version,
-        backendPostTunelVersion: post.version,
-        backendProterGeneradoEn: proter.generadoEn,
-        backendPostTunelGeneradoEn: post.generadoEn
+        backendMapCacheKey: data.cache_key || null,
+        backendProterCacheKey: data.cache_key || null,
+        backendPostTunelCacheKey: data.cache_key || null,
+        backendProterVersion: version,
+        backendPostTunelVersion: version,
+        backendProterGeneradoEn: generated,
+        backendPostTunelGeneradoEn: generated
       }
     };
   },
