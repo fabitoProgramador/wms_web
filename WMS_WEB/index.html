@@ -47,6 +47,7 @@
 
   <!-- Modelos base / mapa -->
   <script src="js/models/userModel.js"></script>
+  <script src="js/models/userAdminModel.js"></script>
   <script src="js/models/palletModel.js"></script>
   <script src="js/models/mapaModel.js"></script>
   <script src="js/models/mapaCodigoModel.js"></script>
@@ -124,10 +125,12 @@
   <script src="js/controllers/reportesController.js"></script>
   <script src="js/controllers/reportesStockController.js"></script>
   <script src="js/controllers/bitacoraOperativaController.js"></script>
+  <script src="js/services/bitacoraPendingCardRenderer.js"></script>
   <script src="js/controllers/verificacionesController.js"></script>
   <script src="js/controllers/bitacoraController.js"></script>
   <script src="js/controllers/userAdminController.js"></script>
   <script src="js/controllers/appController.js"></script>
+  <script src="js/services/userProfileService.js"></script>
 
   <!-- Adaptadores activos del visor de Mapa mientras conserva su UI histórica. -->
   <script src="js/services/mapaProterBackendBridge.js"></script>
@@ -147,6 +150,8 @@
       LabelService.install();
       GrueroBackendAdapter.install();
       InventoryBackendAdapter.install();
+      BitacoraPendingCardRenderer.install();
+      UserProfileService.install();
 
       MapaProterBackendBridge.install();
       MapaPostTunelBackendBridge.install();
