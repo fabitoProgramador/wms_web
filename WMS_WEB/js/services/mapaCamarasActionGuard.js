@@ -7,6 +7,11 @@ const MapaCamarasActionGuard = {
     const text=String(value??'').trim();
     return text||'—';
   },
+  tieneReserva(value){
+    if(value===true)return true;
+    if(value===false||value===null||value===undefined)return false;
+    return String(value).trim()!=='';
+  },
   install(){
     if(this.instalado)return;
     const cameras=new Set(['PROTER','POST TUNEL']);
@@ -37,7 +42,7 @@ const MapaCamarasActionGuard = {
 
     // Los dos bridges comparten el mismo bloque visual de Reserva. SAP puede
     // entregar booleano o un texto de reserva/cliente; nunca se debe convertir
-    // un texto válido en "—".
+    // un texto válido en "—" ni marcar false como reservado.
     const originalDetail=MapaController.overlayDetail,guard=this;
     MapaController.overlayDetail=function(root){
       const result=originalDetail.call(this,root);
@@ -48,7 +53,7 @@ const MapaCamarasActionGuard = {
         root?.querySelectorAll('.compact-reserve').forEach(row=>{
           if(row.querySelector('span')?.textContent?.trim()!=='Reserva')return;
           const value=row.querySelector('b');if(value)value.textContent=guard.reservaTexto(pallet.reservado);
-          row.classList.toggle('reserved',pallet.reservado===true||Boolean(String(pallet.reservado??'').trim()));
+          row.classList.toggle('reserved',guard.tieneReserva(pallet.reservado));
         });
       };
       if(typeof requestAnimationFrame==='function')requestAnimationFrame(apply);else apply();
