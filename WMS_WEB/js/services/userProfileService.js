@@ -42,24 +42,14 @@ const UserProfileService = {
     </div></div>`;
   },
 
-  async edgeSelfUpdate(data={}){
+  async edge(action,payload={}){
     const renovada=await SupabaseService.renovarSiHaceFalta();
     if(!renovada.ok)return{ok:false,error:renovada.error||'La sesión ya no es válida.'};
     const response=await SupabaseService.pedir('/functions/v1/wms-user-admin',{
       method:'POST',
-      body:JSON.stringify({
-        action:'self_update',
-        operacion_uuid:this.uuid(),
-        email:String(data.email||'').trim().toLowerCase(),
-        nombre:String(data.nombre||'').trim(),
-        apellido_paterno:String(data.apellido_paterno||'').trim(),
-        apellido_materno:String(data.apellido_materno||'').trim()||null,
-        cargo:String(data.cargo||'').trim()||null,
-        area:String(data.area||'').trim(),
-        rut:String(data.rut||'').trim()||null
-      })
+      body:JSON.stringify({action,operacion_uuid:this.uuid(),...payload})
     });
-    if(!response.ok||response.datos?.ok===false)return{ok:false,error:response.error||response.datos?.error||'No fue posible actualizar el perfil.',red:response.red};
+    if(!response.ok||response.datos?.ok===false)return{ok:false,error:response.error||response.datos?.error||'No fue posible completar la actualización.',red:response.red,credentialChanged:Boolean(response.datos?.credential_changed)};
     return{ok:true,data:response.datos};
   },
 
@@ -70,17 +60,18 @@ const UserProfileService = {
     const password=String(data.password||'');
     if(password&&password.length<8)return{ok:false,error:'La nueva contraseña debe tener al menos 8 caracteres.'};
 
-    const profile=await this.edgeSelfUpdate({...data,email});
+    const profile=await this.edge('self_update',{
+      email,nombre,apellido_paterno:apellido,
+      apellido_materno:String(data.apellido_materno||'').trim()||null,
+      cargo:String(data.cargo||'').trim()||null,
+      area,rut:String(data.rut||'').trim()||null
+    });
     if(!profile.ok)return profile;
 
     let passwordError=null;
     if(password){
-      const renewed=await SupabaseService.renovarSiHaceFalta();
-      if(!renewed.ok)passwordError=renewed.error||'Los datos se guardaron, pero no fue posible renovar la sesión para cambiar la contraseña.';
-      else{
-        const auth=await SupabaseService.pedir('/auth/v1/user',{method:'PUT',body:JSON.stringify({password})});
-        if(!auth.ok)passwordError=auth.error||'Los datos se guardaron, pero no fue posible cambiar la contraseña.';
-      }
+      const changed=await this.edge('self_set_password',{password});
+      if(!changed.ok)passwordError=changed.credentialChanged?'La contraseña se actualizó, pero falló su auditoría.':'Los datos se guardaron, pero no fue posible cambiar la contraseña: '+changed.error;
     }
 
     const session=await SupabaseService.sesionActual();
