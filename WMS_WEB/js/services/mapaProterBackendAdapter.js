@@ -15,10 +15,19 @@ window.WmsMapAdapter = {
     const legacy = MapaModel.getPallets().filter(p =>
       p.ubicacion !== 'PROTER' && !p._backend_proter && !p._backend_catalog
     );
+    const proter = [...remote.catalogo, ...remote.segmentos];
+    const validProterIds = new Set(proter.map(p => p.id));
+    const mapState = MapaModel.clone(MapaModel.getState());
+    mapState.cargo ||= { embarque: [], postunel: [] };
+    mapState.manuals ||= { embarque: [], postunel: [] };
+    mapState.cargo.embarque = (mapState.cargo.embarque || []).filter(id => validProterIds.has(id));
+    // Los antiguos "manuals" retiraban pallets de una base local. Esa semántica
+    // no es válida en PROTER remoto; el handoff actual usa catálogo backend.
+    mapState.manuals.embarque = [];
 
     return {
-      pallets: [...legacy, ...remote.catalogo, ...remote.segmentos],
-      mapState: MapaModel.getState(),
+      pallets: [...legacy, ...proter],
+      mapState,
       metadata: {
         backendProter: true,
         backendProterCacheKey: remote.cacheKey,
