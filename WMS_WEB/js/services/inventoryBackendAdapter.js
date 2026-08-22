@@ -139,8 +139,40 @@ const InventoryBackendAdapter = {
     };
 
     if (typeof InventoryOperationController !== 'undefined') {
-      InventoryOperationController.resolveCode = async (code, source = 'MANUAL') => {
-        const C = InventoryOperationController;
+      const C = InventoryOperationController;
+
+      C.startView = async function() {
+        const sessions = await InventoryOperationService.sessions();
+        const active = sessions.filter(session => session.estado === InventoryOperationModel.STATES.PROCESS);
+        const selectedBusy = active.find(session => session.almacen === this.warehouse);
+        const count = await InventoryOperationService.previewCount(this.warehouse);
+        const countText = navigator.onLine && !count ? 'Al iniciar' : this.fmt(count);
+        return `<div class="io-start-layout"><article class="io-start-card panel-surface"><div class="io-start-intro"><span class="io-step">01</span><div><h2>Crear corte de inventario</h2><p>Online el snapshot se congela en Supabase; offline usa exclusivamente el último snapshot backend confirmado.</p></div>${this.warehouseToggle(active)}</div><div class="io-start-meta"><div><span>ALMACÉN SELECCIONADO</span><b>${this.esc(this.warehouse)}</b></div><div><span>PALLETS DEL CORTE</span><b>${this.esc(countText)}</b></div><div><span>ESTADO</span><b class="${selectedBusy ? 'busy' : ''}">${selectedBusy ? 'CORTE ACTIVO' : 'DISPONIBLE'}</b></div></div><button class="io-start-button" ${selectedBusy ? 'disabled' : ''} onclick="InventoryOperationController.startCut()"><span>▣</span><div><b>${selectedBusy ? 'CÁMARA CON INVENTARIO ACTIVO' : 'INICIAR CORTE DE INVENTARIO'}</b><small>${selectedBusy ? `Responsable: ${this.esc(selectedBusy.iniciadoPor?.nombre || 'Usuario WMS')}` : 'Supabase valida la cámara antes de congelar el snapshot'}</small></div></button></article>${this.recentSessions(sessions)}</div>`;
+      };
+
+      C.startCut = async function() {
+        const availability = await InventoryOperationService.availability(this.warehouse);
+        if (!availability.available) return this.showNotice('Cámara con inventario activo', `${this.warehouse} ya tiene un corte iniciado por ${availability.session?.iniciadoPor?.nombre || 'otro usuario'}. No se creó una sesión duplicada.`, 'warning');
+        const count = await InventoryOperationService.previewCount(this.warehouse);
+        if (!navigator.onLine && !count) return this.toast(`No existe snapshot backend confirmado para ${this.warehouse}; no se puede iniciar el corte offline.`, 'error');
+        const detail = navigator.onLine
+          ? 'Supabase congelará el snapshot autoritativo usando SAP y las posiciones físicas registradas en mapa.'
+          : `Se congelará el último snapshot backend confirmado con ${this.fmt(count)} pallet(s).`;
+        this.showDecision({ icon: '▣', eyebrow: 'CONFIRMAR CORTE', title: `Iniciar inventario en ${this.warehouse}`, message: `${detail} El stock oficial no será modificado.`, confirmLabel: 'INICIAR INVENTARIO', tone: 'success', action: () => this.createConfirmedCut() });
+      };
+
+      C.createConfirmedCut = async function() {
+        const result = await InventoryOperationService.createSession(this.warehouse);
+        if (!result.ok) return this.showNotice('No fue posible iniciar el corte', result.error || 'La cámara ya tiene un inventario activo.', 'warning');
+        this.session = result.session;
+        this.band = InventoryOperationModel.bands(this.warehouse)[0];
+        this.view = 'scan';
+        await this.render();
+        const total = Number(this.session.totalSnapshot ?? this.session.items?.filter(x => !x.esExtra).length ?? 0);
+        this.toast(`Corte ${this.session.id} creado con ${this.fmt(total)} pallet(s)${result.offline ? ' desde snapshot offline backend' : ' por Supabase'}.`);
+      };
+
+      C.resolveCode = async (code, source = 'MANUAL') => {
         if (!C.session || C.session.estado !== InventoryOperationModel.STATES.PROCESS) return;
         const resolved = await this.resolveOperational(C.session, code, source);
         if (!resolved?.ok) {
@@ -170,8 +202,8 @@ const InventoryBackendAdapter = {
         C.render();
       };
 
-      const originalMountBand = InventoryOperationController.mountBand.bind(InventoryOperationController);
-      InventoryOperationController.mountBand = function() {
+      const originalMountBand = C.mountBand.bind(C);
+      C.mountBand = function() {
         originalMountBand();
         if (navigator.onLine && typeof MapaOfflineService !== 'undefined') {
           MapaOfflineService.refreshFromServer().then(r => { if (r?.ok && AppController.activeView === 'operacion_inventario') originalMountBand(); }).catch(() => {});
