@@ -1,6 +1,12 @@
 /** Guards transversales de las dos cámaras ya migradas a Supabase. */
 const MapaCamarasActionGuard = {
   instalado:false,
+  reservaTexto(value){
+    if(value===true)return'SÍ';
+    if(value===false)return'NO';
+    const text=String(value??'').trim();
+    return text||'—';
+  },
   install(){
     if(this.instalado)return;
     const cameras=new Set(['PROTER','POST TUNEL']);
@@ -27,6 +33,26 @@ const MapaCamarasActionGuard = {
         return this.toast(`Tu sesión no posee permiso para vaciar posiciones ${this.activeCamera}.`,'error');
       }
       return originalRemove.call(this,palletId,slot,restoreKeyboard);
+    };
+
+    // Los dos bridges comparten el mismo bloque visual de Reserva. SAP puede
+    // entregar booleano o un texto de reserva/cliente; nunca se debe convertir
+    // un texto válido en "—".
+    const originalDetail=MapaController.overlayDetail,guard=this;
+    MapaController.overlayDetail=function(root){
+      const result=originalDetail.call(this,root);
+      if(!cameras.has(this.activeCamera))return result;
+      const pallet=MapaModel.getPallets().find(p=>p.id===this.selectedPalletId);
+      if(!pallet)return result;
+      const apply=()=>{
+        root?.querySelectorAll('.compact-reserve').forEach(row=>{
+          if(row.querySelector('span')?.textContent?.trim()!=='Reserva')return;
+          const value=row.querySelector('b');if(value)value.textContent=guard.reservaTexto(pallet.reservado);
+          row.classList.toggle('reserved',pallet.reservado===true||Boolean(String(pallet.reservado??'').trim()));
+        });
+      };
+      if(typeof requestAnimationFrame==='function')requestAnimationFrame(apply);else apply();
+      return result;
     };
 
     // Después de una confirmación/conflicto el snapshot remoto vuelve a mandar.
