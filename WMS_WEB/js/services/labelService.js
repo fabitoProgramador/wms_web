@@ -322,6 +322,14 @@ const LabelService = {
   install() {
     if (typeof LabelController === 'undefined' || LabelController.__backendInstalled) return;
     LabelController.__backendInstalled = true;
+    const originalInit = LabelController.init.bind(LabelController);
+    LabelController.init = async container => {
+      originalInit(container);
+      if (navigator.onLine && SupabaseService.haySesion()) {
+        const result = await this.refresh().catch(() => null);
+        if (result?.ok && LabelController.container === container && AppController.activeView === 'centro_etiquetas') LabelController.render();
+      }
+    };
     LabelController.search = async event => {
       event.preventDefault();
       LabelController.query = document.getElementById('labelLotSearch')?.value || '';
