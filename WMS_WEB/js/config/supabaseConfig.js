@@ -91,7 +91,17 @@ const SUPABASE_CONFIG = {
       actualizar: 'wms_anden_carga_actualizar',
       despachar: 'wms_anden_carga_despachar',
       catalogos: 'wms_anden_catalogos',
-      historial: 'wms_anden_historial'
+      historial: 'wms_anden_historial',
+      detalle: 'wms_anden_despacho_detalle',
+      reabrir: 'wms_reabrir_despacho',
+      devolverPallet: 'wms_despacho_correccion_devolver_pallet',
+      agregarCorreccion: 'wms_anden_correccion_agregar_pallet',
+      confirmarCarga: 'wms_confirmar_carga',
+      recerrar: 'wms_cerrar_despacho',
+      guardarDestino: 'wms_guardar_destino',
+      guardarTransportista: 'wms_guardar_transportista',
+      guardarConductor: 'wms_guardar_conductor',
+      guardarVehiculo: 'wms_guardar_vehiculo'
     },
     bitacora: {
       listar: 'wms_bitacora_listar',
