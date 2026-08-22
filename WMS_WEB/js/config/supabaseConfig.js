@@ -51,7 +51,10 @@ const SUPABASE_CONFIG = {
       snapshot: 'wms_mapa_snapshot',
       resolverCodigo: 'wms_mapa_resolver_codigo',
       sincronizarOperacion: 'wms_mapa_sincronizar_operacion',
-      inventarioCamara: 'wms_mapa_inventario_camara'
+      inventarioCamara: 'wms_mapa_inventario_camara',
+      catalogoCodigos: 'wms_articulos_codigo_catalogo',
+      guardarCodigo: 'wms_articulo_codigo_guardar',
+      liberarCodigo: 'wms_articulo_codigo_liberar'
     },
     gruero: {
       resolverCodigo: 'wms_gruero_resolver_codigo',
