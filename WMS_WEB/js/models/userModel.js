@@ -6,14 +6,10 @@
  * Este modelo NO persiste usuarios, contraseñas, roles ni permisos en
  * localStorage. La identidad viene de Supabase Auth y la autorización de
  * public.wms_sesion_actual().
- *
- * Se conserva el nombre UserModel para no reescribir el shell visual mientras
- * migramos los controladores sección por sección.
  */
 const UserModel = {
   _currentUser: null,
 
-  AREAS: ['Administración', 'Operaciones', 'Calidad', 'Logística', 'Bodega', 'Sistemas', 'Recursos Humanos'],
   ACCESS_LEVELS: [
     { value: 'USER', label: 'Usuario' },
     { value: 'PLANT_MANAGER', label: 'Jefe de Planta' },
@@ -75,34 +71,5 @@ const UserModel = {
 
   accessLabel(user = this.getCurrentUser()) {
     return user?.backendRoleName || this.ACCESS_LEVELS.find(x => x.value === user?.accessLevel)?.label || 'Usuario';
-  },
-
-  /* -----------------------------------------------------------------
-   * Compatibilidad temporal con la vista Administración.
-   * NO se crea ni modifica información local. Estos métodos se reemplazarán
-   * por wms_usuarios_administracion / RPC administrativos al migrar esa vista.
-   * ----------------------------------------------------------------- */
-  getAllUsers() { return []; },
-  saveAllUsers() { return []; },
-  findUserByPass() { return null; },
-
-  updateCurrentUserProfile() {
-    return { ok: false, error: 'El perfil ahora es administrado por el backend. Esta acción se habilitará al migrar Administración.' };
-  },
-
-  validateAdminData() {
-    return 'La administración local de usuarios fue deshabilitada.';
-  },
-
-  createUser() {
-    return { ok: false, error: 'La creación local de usuarios fue deshabilitada. Use el backend WMS.' };
-  },
-
-  updateUser() {
-    return { ok: false, error: 'La modificación local de usuarios fue deshabilitada. Use el backend WMS.' };
-  },
-
-  toggleUserActive() {
-    return { ok: false, error: 'La activación local de usuarios fue deshabilitada. Use el backend WMS.' };
   }
 };
