@@ -1,17 +1,11 @@
 /** Perfil personal y cierre de sesión: backend real, sin persistencia local de negocio. */
 const UserProfileService = {
   instalado:false,
+  // Lista de presentación. Supabase vuelve a validar y canonizar el área al guardar.
   areas:['Administración','Operaciones','Frigorífico','Calidad','Logística','Bodega','Sistemas','Recursos Humanos'],
 
   esc(v){return SeguridadService.escaparHtml(v);},
   uuid(){if(globalThis.crypto?.randomUUID)return globalThis.crypto.randomUUID();return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0,v=c==='x'?r:(r&3|8);return v.toString(16);});},
-
-  async loadCatalogs(){
-    if(!SupabaseService.haySesion())return this.areas;
-    const r=await SupabaseService.rpc('usuarios','miPerfilCatalogos');
-    if(r.ok&&Array.isArray(r.datos?.areas)&&r.datos.areas.length)this.areas=r.datos.areas;
-    return this.areas;
-  },
 
   fields(user,formId,modal=false){
     const areas=[...new Set([...(this.areas||[]),user.area].filter(Boolean))];
@@ -22,7 +16,7 @@ const UserProfileService = {
         <label><span>Apellido paterno</span><input name="apellido_paterno" value="${this.esc(user.apellido_paterno||'')}" autocomplete="family-name" required></label>
         <label><span>Apellido materno</span><input name="apellido_materno" value="${this.esc(user.apellido_materno||'')}" autocomplete="additional-name"></label>
         <label><span>Cargo</span><input name="cargo" value="${this.esc(user.cargo||'')}" autocomplete="organization-title"></label>
-        <label><span>Área</span><select name="area" required>${areas.map(a=>`<option value="${this.esc(a)}" ${String(a).localeCompare(String(user.area||''),'es',{sensitivity:'base'})===0?'selected':''}>${this.esc(a)}</option>`).join('')}</select><small>Catálogo validado por Supabase.</small></label>
+        <label><span>Área</span><select name="area" required>${areas.map(a=>`<option value="${this.esc(a)}" ${String(a).localeCompare(String(user.area||''),'es',{sensitivity:'base'})===0?'selected':''}>${this.esc(a)}</option>`).join('')}</select><small>Supabase valida el valor al guardar.</small></label>
         <label><span>RUT</span><input name="rut" value="${this.esc(user.rut||'')}" autocomplete="off"></label>
         <label><span>Nueva contraseña</span><input name="password" type="password" autocomplete="new-password" minlength="8" placeholder="Dejar en blanco para conservar"><small>Mínimo 8 caracteres.</small></label>
       </div>
@@ -70,7 +64,6 @@ const UserProfileService = {
     AppController.profileFields=function(user,formId,modal=false){return service.fields(user,formId,modal);};
     AppController.openProfileEditor=async function(){
       const user=UserModel.getCurrentUser();if(!user)return;this.closeUserOverlay();this.closeProfileEditor();
-      await service.loadCatalogs().catch(()=>{});
       const root=document.createElement('div');root.id='userProfileModal';root.className='user-profile-backdrop';
       root.innerHTML=`<section class="user-profile-dialog" role="dialog" aria-modal="true" aria-labelledby="userProfileTitle"><header><div><span class="user-avatar">${this.initials(user.name)}</span><div><small>CUENTA PERSONAL</small><h2 id="userProfileTitle">Editar mis datos</h2></div></div><button type="button" onclick="AppController.closeProfileEditor()" aria-label="Cerrar edición de perfil">×</button></header><p>Nombre, contacto operacional y contraseña. El rol RBAC y los permisos sólo se cambian desde Administración de Usuarios.</p>${service.fields(user,'modalProfileForm',true)}</section>`;
       document.getElementById('appRoot')?.appendChild(root);root.querySelector('input[name=nombre]')?.focus();
