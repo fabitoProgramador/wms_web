@@ -177,8 +177,7 @@ const MapaProterBackendModel = {
   },
 
   async resolver(codigo) {
-    const data = await this.rpc('resolverCodigo', { p_codigo: String(codigo || '').trim() });
-    return data;
+    return this.rpc('resolverCodigo', { p_codigo: String(codigo || '').trim() });
   },
 
   candidatosCache(codigo) {
@@ -192,18 +191,75 @@ const MapaProterBackendModel = {
     return [...byId.values()];
   },
 
+  mapeosLetraCache(letra) {
+    const buscada = String(letra || '').trim().toUpperCase();
+    const byArticle = new Map();
+    MapaModel.getPallets().filter(p => p._backend_catalog).forEach(p => {
+      const visual = String(p.codigo_visual_backend || '').trim().toUpperCase().replace(/[\s-]+/g, '');
+      const match = visual.match(/^([A-ZÑ]{1,2})(\d{1,4})$/);
+      const articulo = String(p.articulo || '').trim();
+      if (!match || match[1] !== buscada || !/^\d{5}$/.test(articulo)) return;
+      if (!byArticle.has(articulo)) byArticle.set(articulo, {
+        articulo,
+        letra: match[1],
+        descripcion: p.descripcion && p.descripcion !== 'Sin descripción SAP disponible' ? p.descripcion : null
+      });
+    });
+    return [...byArticle.values()];
+  },
+
+  referenciaOffline(codigo) {
+    const compact = String(codigo || '').trim().toUpperCase().replace(/[\s-]+/g, '');
+    const match = compact.match(/^([A-ZÑ]{1,2})(\d{1,4})$/);
+    if (!match) return null;
+    const numero = Number(match[2]);
+    if (!Number.isInteger(numero) || numero < 1 || numero > 9999) return { ok:false, error:'Número de pallet fuera de rango.' };
+    const mappings = this.mapeosLetraCache(match[1]);
+    if (!mappings.length) return { ok:false, error:'Sin conexión: esa letra no posee una asignación oficial en el último snapshot backend. Use el ID de lote completo.' };
+    if (mappings.length > 1) return { ok:false, conflict:true, ambiguity:true, error:'La letra es ambigua en el snapshot offline. Use el ID de lote completo.', candidatos:mappings.map(x=>x.articulo) };
+    const master = mappings[0];
+    const suffix = numero <= 999 ? String(numero).padStart(3,'0') : String(numero);
+    const temporada = String(IDENTIDAD_PLANTA?.temporadaActual || '').trim();
+    const planta = String(IDENTIDAD_PLANTA?.codigoPlantaLote || '').trim();
+    if (!/^\d{2}$/.test(temporada) || !/^\d{2}$/.test(planta)) return { ok:false, error:'La identidad de planta no permite construir el ID de lote offline.' };
+    const idLote = `${temporada}${planta}${master.articulo}${suffix}`;
+    return {
+      ok:true,
+      offline:true,
+      pallet:{
+        id_lote:idLote,
+        itemcode:master.articulo,
+        itemname:master.descripcion,
+        numero_pallet:suffix,
+        codigo_visual:`${master.letra}${numero}`,
+        codigo_visual_legible:`${master.letra}-${numero}`,
+        cajas:null,
+        kilos:null,
+        estado_mapa:'NO EXISTE',
+        estado_wms:null,
+        estado_sap:null,
+        no_existe_padre:true,
+        sin_codigo_visual:false
+      }
+    };
+  },
+
   resolverCache(codigo) {
     const raw = String(codigo || '').trim().toUpperCase();
     const matches = this.candidatosCache(raw);
     if (matches.length === 1) return { ok: true, pallet: this.palletBackendDesdeCache(matches[0]), offline: true };
     if (matches.length > 1) return { ok: false, conflict: true, ambiguity: true, error: 'Código ambiguo en la copia offline. Use el ID de lote completo.', candidatos: matches.map(PalletModel.idLoteReal) };
+
+    const short = this.referenciaOffline(raw);
+    if (short) return short;
+
     if (/^[0-9]{12,13}$/.test(raw)) {
       return {
         ok: true,
         offline: true,
         pallet: {
           id_lote: raw,
-          itemcode: '',
+          itemcode: raw.slice(4,9),
           itemname: null,
           numero_pallet: raw.slice(9),
           codigo_visual: null,
@@ -224,7 +280,7 @@ const MapaProterBackendModel = {
   palletBackendDesdeCache(p) {
     return {
       id_lote: PalletModel.idLoteReal(p),
-      itemcode: p.numero_articulo || '',
+      itemcode: p.numero_articulo || p.articulo || '',
       itemname: p.descripcion || null,
       numero_pallet: p.numero_pallet || '',
       codigo_visual: p.codigo_visual_backend || (String(p._codigo_visual_manual || '').startsWith('?') ? null : p._codigo_visual_manual),
