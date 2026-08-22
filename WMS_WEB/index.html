@@ -37,6 +37,7 @@
   <script src="js/services/seguridadService.js"></script>
   <script src="js/services/supabaseService.js"></script>
   <script src="js/services/backendBootstrapService.js"></script>
+  <script src="js/services/legacyBusinessDataCleanupService.js"></script>
   <script src="js/services/navigationPermissionService.js"></script>
   <script src="js/services/notificationService.js"></script>
   <script src="js/services/cameraScannerService.js"></script>
@@ -137,10 +138,11 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
+      LegacyBusinessDataCleanupService.purge();
       await BackendBootstrapService.prepararInicio();
       BackendBootstrapService.instalarHooks();
 
-      // Primero se hidratan los snapshots offline derivados del backend. Ningún
+      // Primero se hidratan snapshots offline derivados del backend. Ningún
       // módulo crea datos de negocio locales durante el arranque.
       await LabelService.initialize();
       LabelService.install();
