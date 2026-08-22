@@ -52,6 +52,8 @@ const MapaInventarioModel = {
 
   normalizarItem(row = {}) {
     const posiciones = (row.ubicaciones_fisicas || []).map(x => this.normalizarPosicion(x));
+    const cajasCamara = row.cajas_camara == null ? null : this.numero(row.cajas_camara);
+    const kilosCamara = row.kilos_camara == null ? null : this.numero(row.kilos_camara);
     return {
       ...row,
       idLote: String(row.id_lote || ''),
@@ -60,6 +62,11 @@ const MapaInventarioModel = {
       itemname: row.itemname || 'Sin descripción SAP disponible',
       cajas: row.cajas == null ? null : this.numero(row.cajas),
       kilos: row.kilos == null ? null : this.numero(row.kilos),
+      cajasCamara,
+      kilosCamara,
+      cajasInventario: cajasCamara ?? (row.cajas == null ? null : this.numero(row.cajas)),
+      kilosInventario: kilosCamara ?? (row.kilos == null ? null : this.numero(row.kilos)),
+      saldoCamaraEspecifico: cajasCamara != null || kilosCamara != null,
       estadoInventario: row.estado_inventario || '—',
       camaraConsultada: this.camara(row.camara_consultada),
       camaraSap: row.camara_sap || '—',
@@ -153,8 +160,8 @@ const MapaInventarioModel = {
       altura: String(altura || '').toUpperCase()
     };
     if (!mover) {
-      if (item?.cajas != null) destino.cajas_posicion = item.cajas;
-      if (item?.kilos != null) destino.kilos_posicion = item.kilos;
+      if (item?.cajasInventario != null) destino.cajas_posicion = item.cajasInventario;
+      if (item?.kilosInventario != null) destino.kilos_posicion = item.kilosInventario;
     }
     return this.rpc('sincronizarOperacion', {
       p_idempotency_key: this.uuid(),
