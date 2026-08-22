@@ -82,8 +82,14 @@ const UserAdminModel = {
       area:String(data.area||'').trim(),
       rut:String(data.rut||'').trim()||null,
       rol_codigo:String(data.rol_codigo||'').trim().toUpperCase(),
-      nueva_password:String(data.nueva_password||''),
       motivo:String(data.motivo||'').trim()||'Actualización desde Administración WMS'
+    });
+  },
+
+  cambiarPassword(usuarioId,password) {
+    return this.edge('set_password',{
+      usuario_id:usuarioId,
+      password:String(password||'')
     });
   },
 
