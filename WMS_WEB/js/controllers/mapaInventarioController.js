@@ -17,6 +17,7 @@ const MapaInventarioController = {
   esc(v){return SeguridadService.escaparHtml(v);},
   fmt(v){return Number(v||0).toLocaleString('es-CL');},
   toast(text,type='success'){return NotificationService.show(text,{type});},
+  canManage(){return UserModel.hasPermission('mapa.gestionar');},
 
   init(container){
     this.container=container;
@@ -75,6 +76,7 @@ const MapaInventarioController = {
       <div class="inventory-filters"><label><i class="wi wi-search"></i><input id="inventorySearch" value="${this.esc(this.search)}" placeholder="Código visual, ID de lote o artículo"></label><div class="segmented">${filters.map(([k,l])=>`<button data-filter="${k}" class="${this.filter===k?'active':''}">${l}</button>`).join('')}</div></div>
       <div class="inventory-counts"><article class="found"><b>${this.fmt(c.encontrado)}</b><span>Encontrados</span></article><article class="other"><b>${this.fmt(c.otraCamara)}</b><span>En otra cámara</span></article><article class="missing"><b>${this.fmt(c.noEncontrado)}</b><span>No encontrados</span></article></div>
       ${c.noExiste?`<div class="lote-duplicate">⚠ ${this.fmt(c.noExiste)} posición(es) WMS corresponden a pallets que ya no existen en el padre SAP.</div>`:''}
+      ${this.canManage()?'':'<div class="inventory-readonly">Consulta de solo lectura según permisos de la sesión.</div>'}
     </div>
     <div class="inventory-list">${this.items.length?this.items.map(item=>this.card(item)).join(''):'<div class="empty-message">No hay pallets que coincidan con el filtro.</div>'}</div>
     ${this.items.length<this.result.totalFiltrado?`<button class="show-more" id="inventoryMore" ${this.loadingMore?'disabled':''}>${this.loadingMore?'Cargando…':`Mostrar más (${this.fmt(this.result.totalFiltrado-this.items.length)} restantes)`}</button>`:''}
@@ -114,9 +116,11 @@ const MapaInventarioController = {
   detalle(id){
     const item=this.item(id),root=document.getElementById('inventoryModal');if(!item||!root)return;
     const positions=item.posiciones.length?item.posiciones.map((p,index)=>`<div><dt>Posición ${index+1}</dt><dd>${this.esc(`${p.camara} · Banda ${p.banda} · P${p.posicion} · ${p.altura}`)}${p.cajas!=null?` · ${this.fmt(p.cajas)} cajas`:''}</dd></div>`).join(''):'<div><dt>Ubicación física</dt><dd>Sin posición WMS registrada</dd></div>';
-    const editButtons=item.posiciones.length
-      ?item.posiciones.map((p,index)=>`<button class="btn-secondary" data-edit-segment="${index}">Editar posición ${index+1} · ${this.esc(p.camara)} / Banda ${this.esc(p.banda)}</button>`).join('')
-      :'<button class="btn-primary" id="inventoryAssign">Asignar posición física</button>';
+    const editButtons=this.canManage()
+      ?(item.posiciones.length
+        ?item.posiciones.map((p,index)=>`<button class="btn-secondary" data-edit-segment="${index}">Editar posición ${index+1} · ${this.esc(p.camara)} / Banda ${this.esc(p.banda)}</button>`).join('')
+        :'<button class="btn-primary" id="inventoryAssign">Asignar posición física</button>')
+      :'<small>Sin permiso mapa.gestionar: detalle disponible en modo lectura.</small>';
     root.innerHTML=`<div class="map-modal-backdrop"><section class="inventory-dialog"><header><div><b>${this.esc(item.codigoVisual||item.idLote)}</b><span>${this.esc(this.statusLabel(item.estadoInventario))}</span></div><button id="inventoryClose">×</button></header><div class="inventory-dialog-body">
       <dl class="map-detail-grid"><div><dt>ID Lote</dt><dd>${this.esc(item.idLote)}</dd></div><div><dt>Artículo</dt><dd>${this.esc(item.itemcode)} · ${this.esc(item.itemname)}</dd></div><div><dt>Cajas</dt><dd>${item.cajas==null?'—':this.fmt(item.cajas)}</dd></div><div><dt>Kilos</dt><dd>${item.kilos==null?'—':this.fmt(item.kilos)}</dd></div><div><dt>Estado WMS</dt><dd>${this.esc(item.estadoWms)}</dd></div><div><dt>Calidad SAP</dt><dd>${this.esc(item.estadoSap)}</dd></div><div><dt>Condición WMS</dt><dd>${this.esc(item.condicionPrincipal||'Sin condición principal')}</dd></div><div><dt>Cámara SAP</dt><dd>${this.esc(item.camaraSap)}</dd></div><div><dt>Detector</dt><dd>${this.esc(item.detector)}</dd></div><div><dt>Posiciones WMS</dt><dd>${this.fmt(item.posicionesMapa)}${item.multiubicado?' · MULTIUBICADO':''}</dd></div>${positions}</dl>
       ${item.noExistePadre?'<div class="lote-duplicate">⚠ Este pallet está posicionado en WMS pero no existe actualmente en Lotes_en_Stock.</div>':''}
@@ -139,6 +143,7 @@ const MapaInventarioController = {
   },
 
   asignar(item,segmento){
+    if(!this.canManage())return this.toast('Tu sesión no posee permiso para gestionar posiciones del mapa.','error');
     const root=document.getElementById('inventoryModal');if(!root)return;
     const bands=MapaInventarioModel.bandas(this.camera,this.geometry);
     const levels=MapaInventarioModel.niveles(this.geometry);
@@ -157,6 +162,7 @@ const MapaInventarioController = {
   },
 
   async guardarPosicion(item,segmento,banda,posicion,altura){
+    if(!this.canManage())return this.toast('Tu sesión no posee permiso para gestionar posiciones del mapa.','error');
     if(!banda||!posicion||!altura)return this.toast('Elegí banda, posición y nivel antes de guardar.','error');
     const button=document.getElementById('invSave'),errorNode=document.getElementById('invError');if(button)button.disabled=true;
     try{
