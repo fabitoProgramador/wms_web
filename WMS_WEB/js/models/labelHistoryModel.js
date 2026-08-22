@@ -6,7 +6,9 @@
  * una impresión sin red se muestra de forma optimista y se sincroniza después.
  */
 const LabelHistoryModel = {
-  all() { return typeof LabelService === 'undefined' ? [] : LabelService.history(); },
+  // LabelController histórico invierte `all()` antes de renderizar. Por eso la
+  // fachada expone orden ascendente aunque Supabase entregue DESC.
+  all() { return typeof LabelService === 'undefined' ? [] : LabelService.history().slice().reverse(); },
   forLot(lotCode) {
     const code = String(lotCode || '');
     return this.all().filter(x => String(x.lotCode || '') === code).sort((a, b) => Number(b.timestamp || 0) - Number(a.timestamp || 0));
