@@ -140,6 +140,19 @@ const InventoryBackendAdapter = {
 
     if (typeof InventoryOperationController !== 'undefined') {
       const C = InventoryOperationController;
+      const originalInit = C.init.bind(C);
+      C.init = async function(root) {
+        await originalInit(root);
+        if (this.session?.id && (!Array.isArray(this.session.items) || !this.session.items.length) && navigator.onLine) {
+          const full = await InventoryOperationService.getSession(this.session.id);
+          if (full?.id) {
+            this.session = full;
+            this.warehouse = full.almacen;
+            this.band = InventoryOperationModel.bands(this.warehouse)[0];
+            await this.render();
+          }
+        }
+      };
 
       C.startView = async function() {
         const sessions = await InventoryOperationService.sessions();
