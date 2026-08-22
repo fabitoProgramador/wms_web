@@ -92,18 +92,19 @@ const MapaCodigoController = {
   card(item){
     if(this.editingCodigo===item.codigo&&this.canManage())return this.formCard(item);
     const letra=item.letra;
+    const detalleMapa=item.palletsMapa||item.palletsNoExiste
+      ?` · ${this.fmt(item.palletsMapa)} en mapa${item.palletsNoExiste?` · ${this.fmt(item.palletsNoExiste)} sin padre SAP`:''}`
+      :'';
     return `<article class="code-card ${letra?'assigned':'pending'}" data-art="${this.esc(item.codigo)}">
       <div class="code-card-head">
         <span class="code-letter">${letra?this.esc(letra):'<i class="wi wi-plus"></i>'}</span>
-        <div class="code-card-title"><small>N° ARTÍCULO</small><strong>${this.esc(item.codigo)}</strong><p>${this.esc(item.descripcion)}</p></div>
+        <div class="code-card-id"><b>${this.esc(item.codigo)}</b><small>${this.esc(item.descripcion)}${this.esc(detalleMapa)}</small></div>
       </div>
       <div class="code-card-metrics">
-        <span><small>PALLETS</small><b>${this.fmt(item.pallets)}</b></span>
-        <span><small>CAJAS</small><b>${this.fmt(item.cajas)}</b></span>
-        <span><small>EN MAPA</small><b>${this.fmt(item.palletsMapa)}</b></span>
+        <div><small>PALLETS</small><span>${this.fmt(item.pallets)}</span></div>
+        <div><small>CAJAS</small><span>${this.fmt(item.cajas)}</span></div>
       </div>
-      ${item.palletsNoExiste?`<div class="lote-duplicate">⚠ ${this.fmt(item.palletsNoExiste)} pallet(s) existen en Mapa WMS pero no en el padre SAP.</div>`:''}
-      <div class="code-card-actions">${this.canManage()?`<button class="code-edit" data-art="${this.esc(item.codigo)}"><i class="wi wi-edit"></i>${letra?'Editar letra':'Asignar letra'}</button>${letra?`<button class="code-release" data-art="${this.esc(item.codigo)}"><i class="wi wi-unlink"></i>Liberar</button>`:''}`:'<small>Consulta de solo lectura según permisos de la sesión.</small>'}</div>
+      <div class="code-card-actions">${this.canManage()?`<button class="code-edit" data-art="${this.esc(item.codigo)}">${letra?'<i class="wi wi-edit"></i>Editar letra':'<i class="wi wi-plus"></i>Asignar letra'}</button>${letra?`<button class="code-release" data-art="${this.esc(item.codigo)}"><i class="wi wi-unlink"></i>Liberar</button>`:''}`:'<small>Consulta de solo lectura según permisos de la sesión.</small>'}</div>
     </article>`;
   },
 
