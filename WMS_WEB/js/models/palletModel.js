@@ -1,19 +1,18 @@
 /**
- * Modelo de Datos y Funciones Auxiliares para Pallets en WMS_WEB
- * Fuente de verdad extraída de Modelo/calculos_mapa_pallets.py en Programa MVC
+ * Helpers de presentación para pallets.
+ * Ningún helper fabrica datos maestros: ID, descripción, kilos y código visual
+ * se toman del backend/snapshot confirmado. Sólo se normaliza formato.
  */
 const PalletModel = {
   numeroArticulo(pallet) {
-    const articulo = String(pallet?.articulo || '').trim();
-    return pallet?.numero_articulo || `${IDENTIDAD_PLANTA.temporadaActual}${articulo}`;
+    if (pallet?.numero_articulo) return String(pallet.numero_articulo);
+    if (pallet?.itemcode) return String(pallet.itemcode);
+    const id = this.idLoteReal(pallet);
+    return id.length >= 9 ? `${id.slice(0, 2)}${id.slice(4, 9)}` : '';
   },
 
   idLoteReal(pallet) {
-    if (pallet?.id_lote_real) return String(pallet.id_lote_real);
-    const articulo = String(pallet?.articulo || '').trim();
-    const numero = String(pallet?.numero_pallet || '').trim();
-    const numeroId = numero.length < 3 ? numero.padStart(3, '0') : numero;
-    return `${IDENTIDAD_PLANTA.temporadaActual}${IDENTIDAD_PLANTA.codigoPlantaLote}${articulo}${numeroId}`;
+    return String(pallet?.id_lote_real || pallet?.id_lote || pallet?.lote || '').trim();
   },
 
   desglosarIdLote(idLote) {
@@ -28,12 +27,14 @@ const PalletModel = {
   },
 
   kilos(pallet) {
-    return (Number(pallet?.cajas) || 0) * IDENTIDAD_PLANTA.kilosPorCaja;
+    const value = pallet?.kilos_logicos ?? pallet?.kilos ?? pallet?.kilos_stock;
+    if (value === null || value === undefined || value === '') return 0;
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
   },
 
   descripcion(pallet) {
-    const articulo = String(pallet?.articulo || '').trim();
-    return CATALOGO_ARTICULOS[articulo]?.descripcion || pallet?.descripcion || `Artículo ${articulo}`;
+    return pallet?.descripcion || pallet?.itemname || 'Sin descripción SAP disponible';
   },
 
   datosPresentacion(pallet) {
@@ -47,13 +48,14 @@ const PalletModel = {
     };
   },
 
+  // Se conserva como utilidad visual para código no productivo; la asignación
+  // real artículo->letra se realiza exclusivamente mediante RPC de Supabase.
   siguienteLetra(usadas) {
     const alfabeto = IDENTIDAD_PLANTA.alfabetoEspanol;
     for (let largo = 1; ; largo += 1) {
       const total = Math.pow(alfabeto.length, largo);
       for (let indice = 0; indice < total; indice += 1) {
-        let n = indice;
-        let codigo = '';
+        let n = indice, codigo = '';
         for (let pos = 0; pos < largo; pos += 1) {
           codigo = alfabeto[n % alfabeto.length] + codigo;
           n = Math.floor(n / alfabeto.length);
@@ -62,62 +64,32 @@ const PalletModel = {
       }
     }
   },
-  /**
-   * Genera el Código Visual Técnico (ej: "A20") sin separadores.
-   */
+
   codigoVisual(pallet, letrasPorArticulo = LETRAS_POR_ARTICULO) {
-    if (pallet._codigo_visual_manual) {
-      return pallet._codigo_visual_manual;
-    }
-    const letra = letrasPorArticulo[pallet.articulo] || "?";
-    const numero = pallet.numero_pallet || "00";
-    return `${letra}${numero}`;
+    if (pallet?._codigo_visual_manual) return String(pallet._codigo_visual_manual).replace(/-/g, '');
+    if (pallet?.codigo_visual_backend) return String(pallet.codigo_visual_backend).replace(/-/g, '');
+    const letra = letrasPorArticulo?.[pallet?.articulo];
+    const numero = String(pallet?.numero_pallet || '').replace(/^0+(?=\d)/, '');
+    return letra && numero ? `${letra}${numero}` : '?';
   },
 
-  /**
-   * Genera el Código Visual Legible para pantalla (ej: "A-20").
-   */
   codigoVisualLegible(pallet, letrasPorArticulo = LETRAS_POR_ARTICULO) {
-    if (pallet._codigo_visual_manual) {
-      const match = pallet._codigo_visual_manual.match(/^([A-ZÑ]+)(\d*)$/);
-      if (match && match[2]) {
-        return `${match[1]}-${match[2]}`;
-      }
-      return pallet._codigo_visual_manual;
-    }
-    const letra = letrasPorArticulo[pallet.articulo] || "?";
-    const numero = pallet.numero_pallet || "00";
-    return `${letra}-${numero}`;
+    if (pallet?.codigo_visual_legible_backend) return String(pallet.codigo_visual_legible_backend);
+    const raw = this.codigoVisual(pallet, letrasPorArticulo);
+    const match = raw.match(/^([A-ZÑ]{1,2})(\d+)$/i);
+    return match ? `${match[1].toUpperCase()}-${match[2]}` : raw;
   },
 
-  /**
-   * Normaliza texto ingresado por el usuario (mayúsculas, sin espacios ni guiones).
-   */
   normalizarCodigo(texto) {
-    return (texto || "").toString().trim().toUpperCase().replace(/-/g, "").replace(/\s+/g, "");
+    return (texto || '').toString().trim().toUpperCase().replace(/-/g, '').replace(/\s+/g, '');
   },
 
-  /**
-   * Las TRES formas en que un operador puede escribir un pallet en cualquier
-   * buscador del sistema, y las únicas:
-   *
-   *   1. el ID de lote completo   ->  263011027001
-   *   2. el código visual con guion ->  A-01
-   *   3. el mismo código sin guion  ->  A01   (es lo que muestra el mapa)
-   *
-   * NO se aceptan el id interno (PLT-PRO-1000) ni el campo `lote` crudo
-   * (L-202600): se comprobó vista por vista que no aparecen en ninguna
-   * pantalla del sistema, así que nadie puede leerlos para escribirlos.
-   *
-   * Esta es la única fuente de verdad: la usan el buscador del mapa y el de
-   * Despacho, para que los dos entiendan exactamente lo mismo.
-   */
   clavesDeBusqueda(pallet) {
     const claves = new Set();
     [this.idLoteReal(pallet), this.codigoVisual(pallet), this.codigoVisualLegible(pallet)]
       .forEach(valor => {
         const texto = String(valor ?? '').trim().toUpperCase();
-        if (!texto) return;
+        if (!texto || texto === '?') return;
         claves.add(texto);
         const plano = this.normalizarCodigo(texto);
         if (plano) claves.add(plano);
@@ -125,41 +97,20 @@ const PalletModel = {
     return claves;
   },
 
-  /**
-   * Normaliza un número de lote para comparación.
-   */
-  normalizarLote(texto) {
-    return (texto || "").toString().trim().toUpperCase();
-  },
+  normalizarLote(texto) { return (texto || '').toString().trim().toUpperCase(); },
 
-  /**
-   * Determina el color de celda de un pallet según la cámara y su estado/artículo.
-   */
   colorCeldaCarga(pallet, mapa, dbPallets = []) {
-    if (pallet.repetido) {
-      return COLOR_MAPA_REPETIDO; // "#FFFFFF"
-    }
-    if (pallet.no_existe) {
-      return COLOR_MAPA_NO_EXISTE; // "#60A5FA"
-    }
-    if (mapa === "postunel") {
-      return this.colorParaArticuloPostunel(pallet.articulo, dbPallets);
-    }
-    return COLORES_MAPA_ESTADO[pallet.estado] || "#64748B";
+    if (pallet.repetido) return COLOR_MAPA_REPETIDO;
+    if (pallet.no_existe || pallet.no_existe_padre) return COLOR_MAPA_NO_EXISTE;
+    if (mapa === 'postunel') return this.colorParaArticuloPostunel(pallet.articulo, dbPallets);
+    return COLORES_MAPA_ESTADO[pallet.estado] || '#64748B';
   },
 
-  /**
-   * Color dinámico para artículos en Postúnel.
-   */
   colorParaArticuloPostunel(articulo, dbPallets) {
     const articulosDisponibles = Array.from(new Set(
-      dbPallets
-        .filter(p => p.ubicacion === "POST TUNEL" && p.banda !== null && p.banda !== undefined)
-        .map(p => p.articulo)
+      (dbPallets || []).filter(p => p.ubicacion === 'POST TUNEL' && p.banda !== null && p.banda !== undefined).map(p => p.articulo).filter(Boolean)
     )).sort();
-
     const indice = articulosDisponibles.indexOf(articulo);
-    if (indice === -1) return "#64748B";
-    return PALETA_ARTICULOS_POSTUNEL[indice % PALETA_ARTICULOS_POSTUNEL.length];
+    return indice === -1 ? '#64748B' : PALETA_ARTICULOS_POSTUNEL[indice % PALETA_ARTICULOS_POSTUNEL.length];
   }
 };
