@@ -43,6 +43,13 @@ Asignar una posición usa `COLOCAR`; editar una posición usa `MOVER` con `segme
 
 Se corrigió `wms_mapa_inventario_camara` para que sus contadores utilicen la misma regla multi-almacén (`stock_lote_en_almacen`) que el listado. Esto evita omitir pallets válidos con saldo SAP en más de un almacén.
 
+Además el RPC entrega `cajas_camara` y `kilos_camara` usando `stock_balance_almacen(id_lote, cámara)`. Al crear una posición física se guarda ese saldo específico de la cámara, no el total lógico del pallet. Ejemplos validados en PROTER:
+
+- `263011055163`: 67 cajas / 804 kg en PROTER, frente a 70 / 840 totales lógicos.
+- `2630118001048`: 18 cajas / 216 kg en PROTER, frente a 70 / 840 totales lógicos.
+
+La ficha de Inventario muestra el saldo de la cámara como dato principal y, cuando difiere, mantiene el saldo lógico total como contexto. Un `MOVER` de segmento no reescribe las cantidades del segmento.
+
 Permisos: `mapa.ver` para consulta y `mapa.gestionar` para asignar/mover posiciones.
 
 ## Frontera con el visor principal
