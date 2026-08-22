@@ -57,11 +57,12 @@
   <script src="js/models/mapaCodigoModel.js"></script>
   <script src="js/models/mapaInventarioModel.js"></script>
   <script src="js/models/mapaProterBackendModel.js"></script>
+  <script src="js/models/mapaPostTunelBackendModel.js"></script>
   <script src="js/services/grueroCodeResolver.js"></script>
   <script src="js/services/mapaOfflineService.js"></script>
-  <!-- PROTER ya consume Supabase; Post Túnel sigue legacy hasta su fase propia. -->
-  <script src="js/services/mapaProterLegacyIsolation.js"></script>
-  <script src="js/services/mapaProterBackendAdapter.js"></script>
+  <!-- PROTER y POST TÚNEL consumen Supabase; MapaModel sólo conserva shape/render y cache offline explícita. -->
+  <script src="js/services/mapaCamarasLegacyIsolation.js"></script>
+  <script src="js/services/mapaCamarasBackendAdapter.js"></script>
 
   <!-- PanelControlModel sigue temporalmente por consumidores legacy pendientes;
        Bitácora y Verificaciones ya NO lo usan como base de negocio. -->
@@ -131,7 +132,8 @@
   <script src="js/controllers/appController.js"></script>
   <script src="js/services/operacionesBackendBridge.js"></script>
   <script src="js/services/mapaProterBackendBridge.js"></script>
-  <script src="js/services/mapaProterActionGuard.js"></script>
+  <script src="js/services/mapaPostTunelBackendBridge.js"></script>
+  <script src="js/services/mapaCamarasActionGuard.js"></script>
   <script src="js/services/mapaSubmodulosBackendBridge.js"></script>
 
   <script>
@@ -139,9 +141,10 @@
       await BackendBootstrapService.prepararInicio();
       BackendBootstrapService.instalarHooks();
       OperacionesBackendBridge.install();
-      MapaProterLegacyIsolation.install();
+      MapaCamarasLegacyIsolation.install();
       MapaProterBackendBridge.install();
-      MapaProterActionGuard.install();
+      MapaPostTunelBackendBridge.install();
+      MapaCamarasActionGuard.install();
       MapaSubmodulosBackendBridge.install();
       NavigationPermissionService.install(AppController);
       AppController.init();
