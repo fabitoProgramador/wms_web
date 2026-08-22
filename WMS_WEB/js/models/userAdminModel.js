@@ -7,6 +7,8 @@ const UserAdminModel = {
     });
   },
 
+  normalizarTexto(v){return String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLocaleLowerCase('es');},
+
   async rpc(nombre,parametros={}) {
     const response=await SupabaseService.rpc('usuarios',nombre,parametros);
     if(!response.ok){
@@ -17,14 +19,20 @@ const UserAdminModel = {
     return response.datos;
   },
 
-  listar({buscar='',estado='TODOS',rol=null,limite=200,offset=0}={}) {
-    return this.rpc('administrar',{
+  async listar({buscar='',estado='TODOS',rol=null,limite=200,offset=0}={}) {
+    const data=await this.rpc('administrar',{
       p_busqueda:String(buscar||'').trim()||null,
       p_estado:estado||'TODOS',
       p_rol_codigo:rol&&rol!=='TODOS'?rol:null,
       p_limite:limite,
       p_offset:offset
     });
+    const areas=Array.isArray(data?.areas)?data.areas:[];
+    if(Array.isArray(data?.usuarios))data.usuarios=data.usuarios.map(u=>{
+      const canon=areas.find(a=>this.normalizarTexto(a)===this.normalizarTexto(u.area));
+      return canon?{...u,area:canon}:u;
+    });
+    return data;
   },
 
   historial(usuarioId,limite=50) {
