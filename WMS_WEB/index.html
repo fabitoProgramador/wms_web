@@ -131,6 +131,7 @@
   <script src="js/controllers/appController.js"></script>
   <script src="js/services/operacionesBackendBridge.js"></script>
   <script src="js/services/mapaProterBackendBridge.js"></script>
+  <script src="js/services/mapaProterActionGuard.js"></script>
   <script src="js/services/mapaSubmodulosBackendBridge.js"></script>
 
   <script>
@@ -140,6 +141,7 @@
       OperacionesBackendBridge.install();
       MapaProterLegacyIsolation.install();
       MapaProterBackendBridge.install();
+      MapaProterActionGuard.install();
       MapaSubmodulosBackendBridge.install();
       NavigationPermissionService.install(AppController);
       AppController.init();
