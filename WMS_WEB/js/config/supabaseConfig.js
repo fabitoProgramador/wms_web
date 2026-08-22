@@ -51,6 +51,8 @@ const SUPABASE_CONFIG = {
       snapshot: 'wms_mapa_snapshot',
       resolverCodigo: 'wms_mapa_resolver_codigo',
       sincronizarOperacion: 'wms_mapa_sincronizar_operacion',
+      vaciarBanda: 'wms_mapa_vaciar_banda',
+      reemplazarSegmento: 'wms_mapa_reemplazar_segmento',
       inventarioCamara: 'wms_mapa_inventario_camara',
       catalogoCodigos: 'wms_articulos_codigo_catalogo',
       guardarCodigo: 'wms_articulo_codigo_guardar',
