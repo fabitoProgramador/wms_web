@@ -1,36 +1,10 @@
 /**
- * Servicio de seguridad del cliente.
+ * Seguridad del cliente.
  *
- * Único lugar del proyecto donde viven las decisiones de seguridad que se
- * aplican en el navegador. Es la base sobre la que después se apoya el
- * backend: cuando el sistema hable con Supabase, la autoridad real pasa a
- * estar en la base de datos, y esto queda como la primera barrera.
- *
- * REGLA IMPORTANTE: nada de lo que hay acá reemplaza a un servidor. Todo lo
- * que corre en el navegador es manipulable por quien tenga la consola abierta.
- * Esto reduce el daño accidental y cierra las vías de inyección; la validación
- * que no se puede burlar tiene que vivir en la base.
+ * La autoridad real vive en Supabase Auth + RBAC/RPC. Este servicio sólo
+ * mantiene defensas de interfaz que no sustituyen al backend.
  */
 const SeguridadService = {
-
-  /* ==================================================================
-     1. ESCAPE DE HTML
-     ================================================================== */
-
-  /**
-   * Convierte un valor cualquiera en texto seguro para insertar en HTML,
-   * TANTO en contenido como dentro de un atributo.
-   *
-   * Por qué no basta con `textContent`: la forma anterior creaba un <div>,
-   * le asignaba textContent y devolvía innerHTML. Eso escapa `< > &` pero
-   * NO las comillas. Como el proyecto interpola en atributos
-   * (title="${esc(x)}", data-id="${esc(x)}" y 65 sitios más), un valor con
-   * una comilla doble cerraba el atributo y permitía inyectar otro. Con
-   * datos que llegan de SAP o que escribe un operador, eso es una puerta.
-   *
-   * Comprobado: `" data-x="1` inyectaba un atributo con la versión vieja y
-   * no inyecta nada con ésta.
-   */
   escaparHtml(valor) {
     return String(valor ?? '')
       .replaceAll('&', '&amp;')
@@ -40,86 +14,50 @@ const SeguridadService = {
       .replaceAll("'", '&#039;');
   },
 
-  /* ==================================================================
-     2. VIGENCIA DE LA SESIÓN
-
-     NO se cierra por inactividad, y es a propósito. En cámara de frío un
-     operador puede pasar una hora sin tocar el equipo porque está
-     trabajando: bajando pallets, esperando un yale, revisando carga. Que
-     el sistema lo eche por eso sería un estorbo, no una protección.
-
-     Lo único que se controla es la duración TOTAL de la sesión: una
-     sesión que quedó abierta en un PC de cámara no puede seguir viva
-     indefinidamente. El tope está por encima de cualquier turno real,
-     así que en operación normal nadie lo alcanza.
-     ================================================================== */
-
-  SESION: {
-    /* 16 h: un turno de 12 con margen de sobra. Se cambia acá y en
-       ningún otro lado. */
-    DURACION_MAX_HORAS: 16,
-    CLAVE_INICIO: 'wms_web_sesion_inicio'
-  },
-
-  /** Se llama al iniciar sesión: deja la marca de tiempo de arranque. */
-  marcarInicioSesion() {
-    try { localStorage.setItem(this.SESION.CLAVE_INICIO, String(Date.now())); }
-    catch (_) { /* almacenamiento lleno o bloqueado: la app sigue */ }
-  },
-
-  /**
-   * @returns {{vigente:boolean, motivo:string|null}}
+  /*
+   * AppController todavía consulta este método de forma síncrona. Cuando
+   * Supabase está activo, la sesión ya fue validada por BackendBootstrapService
+   * contra wms_sesion_actual(), por lo que aquí no se crea un segundo reloj
+   * local ni una regla paralela de caducidad.
    */
   estadoSesion() {
-    let inicio = 0;
-    try { inicio = Number(localStorage.getItem(this.SESION.CLAVE_INICIO) || 0); } catch (_) {}
-    if (!Number.isFinite(inicio) || inicio <= 0) {
-      /* Sesión anterior a este control: se la deja pasar y se marca ahora,
-         para no echar a nadie en el primer despliegue. */
-      this.marcarInicioSesion();
-      return { vigente: true, motivo: null };
+    if (typeof SUPABASE_CONFIG !== 'undefined' && SUPABASE_CONFIG.listo()) {
+      return { vigente: Boolean(SupabaseService?.haySesion?.()), motivo: SupabaseService?.haySesion?.() ? null : 'backend' };
     }
-    if (Date.now() - inicio > this.SESION.DURACION_MAX_HORAS * 60 * 60 * 1000) {
-      return { vigente: false, motivo: 'duracion' };
-    }
-    return { vigente: true, motivo: null };
+    return { vigente: false, motivo: 'backend_requerido' };
+  },
+
+  marcarInicioSesion() {
+    // Sin efecto: la duración máxima se calcula y valida en wms_sesion_actual().
   },
 
   limpiarMarcasSesion() {
-    try { localStorage.removeItem(this.SESION.CLAVE_INICIO); } catch (_) {}
+    try { sessionStorage.removeItem('wms_web_sesion_inicio'); } catch (_) {}
+    try { localStorage.removeItem('wms_web_sesion_inicio'); } catch (_) {}
   },
 
-  /* ==================================================================
-     3. FRENO A LOS INTENTOS FALLIDOS
-
-     Hoy la contraseña es además el identificador, así que probar claves al
-     azar identifica usuarios. Un freno progresivo hace inviable ese tanteo
-     sin molestar a quien simplemente se equivocó una vez.
-     ================================================================== */
-
+  /* Freno de UX ante intentos repetidos. Supabase mantiene sus propios
+     controles/rate limits; esto sólo evita tanteos rápidos desde este cliente. */
   INTENTOS: {
     CLAVE: 'wms_web_intentos_acceso',
-    LIBRES: 4,            // los primeros cuatro no esperan nada
-    ESPERA_BASE_SEG: 15,  // a partir del quinto: 15 s, 30 s, 60 s…
+    LIBRES: 4,
+    ESPERA_BASE_SEG: 15,
     ESPERA_MAX_SEG: 300,
-    OLVIDO_MIN: 30        // media hora sin fallar y el contador vuelve a cero
+    OLVIDO_MIN: 30
   },
 
   _leerIntentos() {
     try {
-      const x = JSON.parse(localStorage.getItem(this.INTENTOS.CLAVE) || 'null');
+      const x = JSON.parse(sessionStorage.getItem(this.INTENTOS.CLAVE) || 'null');
       if (!x || typeof x !== 'object') return { fallos: 0, ultimo: 0 };
       return { fallos: Number(x.fallos) || 0, ultimo: Number(x.ultimo) || 0 };
     } catch (_) { return { fallos: 0, ultimo: 0 }; }
   },
+
   _guardarIntentos(estado) {
-    try { localStorage.setItem(this.INTENTOS.CLAVE, JSON.stringify(estado)); } catch (_) {}
+    try { sessionStorage.setItem(this.INTENTOS.CLAVE, JSON.stringify(estado)); } catch (_) {}
   },
 
-  /**
-   * ¿Puede intentar ahora?
-   * @returns {{permitido:boolean, esperaSeg:number, fallos:number}}
-   */
   puedeIntentar() {
     const { fallos, ultimo } = this._leerIntentos();
     if (!fallos) return { permitido: true, esperaSeg: 0, fallos: 0 };
@@ -143,6 +81,7 @@ const SeguridadService = {
   },
 
   reiniciarIntentos() {
+    try { sessionStorage.removeItem(this.INTENTOS.CLAVE); } catch (_) {}
     try { localStorage.removeItem(this.INTENTOS.CLAVE); } catch (_) {}
   }
 };

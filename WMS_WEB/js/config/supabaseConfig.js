@@ -1,76 +1,166 @@
 /**
- * Configuración de conexión con Supabase.
+ * Contrato de conexión WMS_WEB -> Supabase.
  *
- * ====================================================================
- * NADA DE ESTO ESTÁ ACTIVO TODAVÍA.
- * Mientras `HABILITADO` sea false, el sistema sigue funcionando
- * exactamente como hoy, contra los datos locales. Este archivo son los
- * cimientos: se llena cuando exista el proyecto en Supabase y se
- * enciende cuando el backend esté probado.
- * ====================================================================
+ * REGLA DE ARQUITECTURA
+ * --------------------------------------------------------------------
+ * Supabase es la fuente autoritativa del WMS. No existe fallback de datos
+ * operacionales, usuarios, roles o permisos hacia localStorage.
  *
- * SOBRE LAS CLAVES — importante
+ * localStorage puede seguir utilizándose únicamente para preferencias de UI
+ * o caches/offline explícitas; nunca como base de datos de negocio.
  *
- * La clave `anon` es PÚBLICA por diseño: viaja al navegador y cualquiera
- * puede leerla. Eso no es una filtración: lo que protege los datos no es
- * la clave, son las políticas de Row Level Security de la base. Una anon
- * sin RLS deja la base abierta; una anon con RLS bien escrita es segura.
- *
- * La clave `service_role` NO puede aparecer nunca en este archivo ni en
- * ningún otro que llegue al navegador. Salta todas las políticas. Vive
- * únicamente en un servidor propio o en una Edge Function de Supabase.
+ * La clave publishable es pública por diseño y puede vivir en el navegador.
+ * NUNCA colocar service_role ni secretos administrativos en este repositorio.
  */
 const SUPABASE_CONFIG = {
+  HABILITADO: true,
 
-  /* Se enciende cuando el backend esté listo y probado. Con false, el
-     sistema no intenta ninguna conexión remota. */
-  HABILITADO: false,
+  URL: 'https://tbcgkpjhjymwyhuobpqy.supabase.co',
+  PUBLISHABLE_KEY: 'sb_publishable_PoFNqdz0IbA2zeQ-q6urHQ_-M5Bje0h',
 
-  /* Pegar acá los dos valores del panel de Supabase:
-     Project Settings -> API -> Project URL y anon public. */
-  URL: '',
-  ANON_KEY: '',
+  // El backend real expone sus RPC WMS desde public.
+  ESQUEMA: 'public',
 
-  /* Nombre del esquema. Se usa uno propio en vez de `public` para que las
-     tablas del WMS no se mezclen con las que Supabase crea por su cuenta. */
-  ESQUEMA: 'wms',
-
-  /* Tablas. Los nombres se declaran acá y no sueltos por el código, para
-     que renombrar una tabla sea un cambio en un solo lugar. */
-  TABLAS: {
-    usuarios: 'usuarios',
-    pallets: 'pallets',
-    movimientos: 'movimientos',
-    despachos: 'despachos',
-    inventarios: 'inventarios',
-    inventario_items: 'inventario_items',
-    bitacora: 'bitacora',
-    verificaciones: 'verificaciones',
-    aprobaciones: 'aprobaciones',
-    comunicados: 'comunicados',
-    etiquetas: 'etiquetas_impresas',
-    mapa_estado: 'mapa_estado'
+  /**
+   * Registro central de contratos del backend.
+   * Cada controlador debe usar estos nombres y no escribir RPCs sueltos.
+   */
+  RPC: {
+    auth: {
+      sesionActual: 'wms_sesion_actual',
+      tienePermiso: 'wms_tiene_permiso'
+    },
+    dashboard: {
+      resumen: 'wms_dashboard_resumen',
+      ocupacionTendencia: 'wms_dashboard_ocupacion_tendencia',
+      estadoDetalle: 'wms_dashboard_estado_detalle',
+      analisis: 'wms_analisis_operacional',
+      almacenesCatalogo: 'wms_analisis_almacenes_catalogo',
+      monitorResumen: 'wms_monitor_resumen',
+      monitorEventos: 'wms_monitor_eventos'
+    },
+    stock: {
+      detalle: 'wms_stock_detalle',
+      loteDetallado: 'wms_lote_detallado',
+      resumenArticulos: 'wms_stock_resumen_articulos',
+      resumenCamaras: 'wms_stock_resumen_camaras',
+      resumenEstados: 'wms_stock_resumen_estados',
+      exportar: 'wms_stock_exportar'
+    },
+    mapa: {
+      snapshot: 'wms_mapa_snapshot',
+      resolverCodigo: 'wms_mapa_resolver_codigo',
+      sincronizarOperacion: 'wms_mapa_sincronizar_operacion',
+      vaciarBanda: 'wms_mapa_vaciar_banda',
+      reemplazarSegmento: 'wms_mapa_reemplazar_segmento',
+      inventarioCamara: 'wms_mapa_inventario_camara',
+      catalogoCodigos: 'wms_articulos_codigo_catalogo',
+      guardarCodigo: 'wms_articulo_codigo_guardar',
+      liberarCodigo: 'wms_articulo_codigo_liberar'
+    },
+    gruero: {
+      resolverCodigo: 'wms_gruero_resolver_codigo',
+      banda: 'wms_gruero_banda',
+      sincronizarMovimiento: 'wms_gruero_sincronizar_movimiento'
+    },
+    inventario: {
+      iniciar: 'wms_iniciar_inventario',
+      sesion: 'wms_inventario_sesion',
+      sesiones: 'wms_inventario_sesiones',
+      activo: 'wms_inventario_activo',
+      resolverCodigo: 'wms_inventario_resolver_codigo',
+      detalleActual: 'wms_inventario_detalle_actual',
+      sincronizarOperacion: 'wms_inventario_sincronizar_operacion',
+      cerrar: 'wms_cerrar_inventario'
+    },
+    operaciones: {
+      movimientos: 'wms_operaciones_movimientos_listar',
+      resolverCodigos: 'wms_operaciones_resolver_codigos',
+      aplicarPedido: 'wms_operaciones_pedido_aplicar',
+      aplicarDespacho: 'wms_operaciones_despacho_aplicar',
+      aprobaciones: 'wms_operaciones_aprobaciones_listar',
+      motivoAprobacion: 'wms_operaciones_aprobacion_motivo',
+      packingAprobacion: 'wms_operaciones_aprobacion_packing',
+      decidirAprobacion: 'wms_operaciones_aprobacion_decidir',
+      reclasificar: 'wms_operaciones_reclasificar'
+    },
+    anden: {
+      cargaActual: 'wms_anden_carga_actual',
+      agregarPallet: 'wms_anden_carga_agregar_pallet',
+      quitarPallet: 'wms_anden_carga_quitar_pallet',
+      actualizar: 'wms_anden_carga_actualizar',
+      despachar: 'wms_anden_carga_despachar',
+      catalogos: 'wms_anden_catalogos',
+      historial: 'wms_anden_historial',
+      detalle: 'wms_anden_despacho_detalle',
+      reabrir: 'wms_reabrir_despacho',
+      devolverPallet: 'wms_despacho_correccion_devolver_pallet',
+      agregarCorreccion: 'wms_anden_correccion_agregar_pallet',
+      confirmarCarga: 'wms_confirmar_carga',
+      recerrar: 'wms_cerrar_despacho',
+      guardarDestino: 'wms_guardar_destino',
+      guardarTransportista: 'wms_guardar_transportista',
+      guardarConductor: 'wms_guardar_conductor',
+      guardarVehiculo: 'wms_guardar_vehiculo'
+    },
+    bitacora: {
+      listar: 'wms_bitacora_listar',
+      detalle: 'wms_bitacora_detalle',
+      pendientes: 'wms_bitacora_pendientes',
+      precarga: 'wms_bitacora_precarga',
+      turno: 'wms_bitacora_turno',
+      kpiDetalle: 'wms_bitacora_kpi_detalle',
+      pendienteAuditoria: 'wms_bitacora_pendiente_auditoria',
+      crear: 'wms_crear_bitacora',
+      modificar: 'wms_modificar_bitacora',
+      anular: 'wms_anular_bitacora'
+    },
+    verificaciones: {
+      listar: 'wms_verificaciones_listar',
+      turno: 'wms_verificaciones_turno',
+      detalle: 'wms_verificacion_detalle',
+      resolverLote: 'wms_verificacion_resolver_lote',
+      crear: 'wms_crear_verificacion',
+      modificar: 'wms_modificar_verificacion',
+      anular: 'wms_anular_verificacion',
+      anularTurno: 'wms_anular_verificaciones_turno'
+    },
+    reportes: {
+      catalogos: 'wms_reportes_catalogos',
+      compilar: 'wms_reportes_compilar',
+      stockListar: 'wms_reportes_stock_listar',
+      stockExportar: 'wms_reportes_stock_exportar',
+      valoresFiltro: 'wms_reportes_stock_valores_filtro'
+    },
+    etiquetas: {
+      resolver: 'wms_etiqueta_resolver',
+      produccion: 'wms_etiquetas_produccion',
+      historial: 'wms_etiquetas_historial',
+      registrarImpresion: 'wms_etiquetas_registrar_impresion'
+    },
+    usuarios: {
+      administrar: 'wms_usuarios_administracion',
+      historial: 'wms_usuario_admin_historial',
+      miPerfilActualizar: 'wms_mi_perfil_actualizar'
+    }
   },
 
-  /* Cuánto espera una llamada antes de darse por perdida. En cámara la
-     señal es mala: conviene fallar rápido y seguir con la cola offline,
-     que ya existe, antes que dejar al operador esperando. */
   TIMEOUT_MS: 8000,
-
-  /* Reintentos con espera creciente para errores de red, nunca para
-     errores de permiso: si la base dice que no, no se insiste. */
   REINTENTOS: 2,
+  SESSION_STORAGE_KEY: 'wms_web_supabase_session_v1',
 
-  /** ¿Está todo lo necesario para intentar conectar? */
   listo() {
-    return Boolean(this.HABILITADO && this.URL && this.ANON_KEY);
+    return Boolean(this.HABILITADO && this.URL && this.PUBLISHABLE_KEY);
   },
 
-  /** Diagnóstico legible, para mostrar en pantalla o en la bitácora. */
+  rpc(grupo, nombre) {
+    return this.RPC?.[grupo]?.[nombre] || null;
+  },
+
   diagnostico() {
-    if (!this.HABILITADO) return 'Backend deshabilitado: el sistema trabaja con datos locales.';
+    if (!this.HABILITADO) return 'Backend Supabase deshabilitado.';
     if (!this.URL) return 'Falta la URL del proyecto de Supabase.';
-    if (!this.ANON_KEY) return 'Falta la clave anon del proyecto de Supabase.';
-    return 'Configuración de Supabase completa.';
+    if (!this.PUBLISHABLE_KEY) return 'Falta la clave pública del proyecto de Supabase.';
+    return 'Backend Supabase activo.';
   }
 };

@@ -1,7 +1,9 @@
 /**
  * Login WMS_WEB.
- * Replica el flujo del login de Programa MVC y conserva la arquitectura
- * de controlador + modelo que ya utiliza este proyecto web.
+ *
+ * FUENTE DE VERDAD: Supabase Auth + public.wms_sesion_actual().
+ * No existe autenticación local ni fallback por contraseña almacenada en el
+ * navegador. La composición visual y sus clases CSS se conservan.
  */
 const AuthController = {
   container: null,
@@ -83,9 +85,17 @@ const AuthController = {
     panel.innerHTML = `
       <div class="auth-state auth-state-form">
         <h2 id="authTitle">Bienvenido de vuelta</h2>
-        <p class="auth-state-intro">Ingresá tu contraseña para acceder al panel de control.</p>
+        <p class="auth-state-intro">Ingresá tus credenciales para acceder al panel de control.</p>
 
         <form id="wmsLoginForm" onsubmit="AuthController.handleLogin(event)" novalidate>
+          <div class="form-group">
+            <label for="wmsLoginEmail">Correo electrónico</label>
+            <div class="auth-input-wrap">
+              <span class="auth-input-icon" aria-hidden="true">✉</span>
+              <input type="email" id="wmsLoginEmail" class="form-control auth-control" placeholder="nombre@empresa.cl" autocomplete="username" aria-describedby="wmsLoginError">
+            </div>
+          </div>
+
           <div class="form-group">
             <label for="wmsLoginPass">Contraseña de acceso</label>
             <div class="auth-input-wrap">
@@ -104,7 +114,7 @@ const AuthController = {
         </form>
       </div>
     `;
-    requestAnimationFrame(() => document.getElementById('wmsLoginPass')?.focus());
+    requestAnimationFrame(() => document.getElementById('wmsLoginEmail')?.focus());
   },
 
   showRecovery() {
@@ -113,105 +123,123 @@ const AuthController = {
     panel.innerHTML = `
       <div class="auth-state auth-state-form">
         <h2 id="authTitle">Recuperar contraseña</h2>
-        <p class="auth-state-intro">Ingresá tus datos y un administrador te ayudará a restablecer el acceso.</p>
+        <p class="auth-state-intro">Ingresá el correo asociado a tu cuenta WMS.</p>
 
         <form id="wmsRecoveryForm" onsubmit="AuthController.handleRecovery(event)" novalidate>
           <div class="form-group">
-            <label for="recoveryName">Nombre completo</label>
+            <label for="recoveryEmail">Correo electrónico</label>
             <div class="auth-input-wrap">
-              <span class="auth-input-icon" aria-hidden="true">👤</span>
-              <input type="text" id="recoveryName" class="form-control auth-control" placeholder="Nombre completo" autocomplete="name">
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="recoveryRole">Cargo o área</label>
-            <div class="auth-input-wrap">
-              <span class="auth-input-icon" aria-hidden="true">🪪</span>
-              <input type="text" id="recoveryRole" class="form-control auth-control" placeholder="Cargo o área" autocomplete="organization-title">
+              <span class="auth-input-icon" aria-hidden="true">✉</span>
+              <input type="email" id="recoveryEmail" class="form-control auth-control" placeholder="nombre@empresa.cl" autocomplete="email">
             </div>
           </div>
 
           <p id="wmsRecoveryError" class="auth-inline-message auth-error" role="alert" hidden></p>
 
           <div class="auth-actions auth-actions-recovery">
-            <button type="submit" class="btn-primary auth-submit">Enviar solicitud <span aria-hidden="true">↗</span></button>
+            <button type="submit" class="btn-primary auth-submit">Recuperar acceso <span aria-hidden="true">↗</span></button>
             <button type="button" class="auth-link auth-back-link" onclick="AuthController.showLogin()">← Volver al inicio de sesión</button>
           </div>
         </form>
       </div>
     `;
-    requestAnimationFrame(() => document.getElementById('recoveryName')?.focus());
+    requestAnimationFrame(() => document.getElementById('recoveryEmail')?.focus());
   },
 
-  handleLogin(event) {
+  async handleLogin(event) {
     event.preventDefault();
-    const input = document.getElementById('wmsLoginPass');
+    const emailInput = document.getElementById('wmsLoginEmail');
+    const passInput = document.getElementById('wmsLoginPass');
     const error = document.getElementById('wmsLoginError');
-    const password = input.value;
+    const submit = event.currentTarget?.querySelector('.auth-submit');
+    const email = String(emailInput?.value || '').trim();
+    const password = String(passInput?.value || '');
 
-    /* Freno progresivo. Hoy la contraseña es ademas el identificador, asi que
-       probar claves al azar identifica usuarios: a partir del quinto fallo se
-       obliga a esperar, duplicando la espera cada vez. Media hora sin fallar y
-       el contador vuelve a cero. */
     const puerta = SeguridadService.puedeIntentar();
     if (!puerta.permitido) {
       error.textContent = `Demasiados intentos fallidos. Espere ${puerta.esperaSeg} segundo${puerta.esperaSeg === 1 ? '' : 's'}.`;
       error.hidden = false;
-      input.classList.add('is-invalid');
-      input.value = '';
+      passInput?.classList.add('is-invalid');
+      if (passInput) passInput.value = '';
       return;
     }
 
-    const user = UserModel.findUserByPass(password);
-
-    if (!user) {
-      SeguridadService.registrarFallo();
-      error.textContent = 'Contraseña incorrecta';
+    const emailValido = Boolean(email && email.includes('@'));
+    const passValida = Boolean(password);
+    emailInput?.classList.toggle('is-invalid', !emailValido);
+    passInput?.classList.toggle('is-invalid', !passValida);
+    if (!emailValido || !passValida) {
+      error.textContent = !emailValido ? 'Ingresá un correo electrónico válido.' : 'Ingresá tu contraseña.';
       error.hidden = false;
-      input.classList.add('is-invalid');
-      input.value = '';
-      input.focus();
+      (!emailValido ? emailInput : passInput)?.focus();
+      return;
+    }
+
+    if (!SUPABASE_CONFIG.listo()) {
+      error.textContent = 'El backend Supabase no está configurado correctamente.';
+      error.hidden = false;
+      return;
+    }
+
+    if (submit) submit.disabled = true;
+    const result = await SupabaseService.ingresar(email, password);
+    if (submit) submit.disabled = false;
+
+    if (!result.ok || !result.usuario) {
+      SeguridadService.registrarFallo();
+      error.textContent = result.error || 'No fue posible iniciar sesión.';
+      error.hidden = false;
+      emailInput?.classList.add('is-invalid');
+      passInput?.classList.add('is-invalid');
+      if (passInput) passInput.value = '';
+      passInput?.focus();
       return;
     }
 
     error.hidden = true;
-    input.classList.remove('is-invalid');
-    this.pendingUser = user;
-    /* Entrada correcta: se limpia el contador de fallos y arranca el reloj
-       de vigencia de la sesion. */
+    emailInput?.classList.remove('is-invalid');
+    passInput?.classList.remove('is-invalid');
     SeguridadService.reiniciarIntentos();
-    SeguridadService.marcarInicioSesion();
-    UserModel.setCurrentUser(user);
+    this.pendingUser = UserModel.setCurrentUser(result.usuario);
     this.showLoading();
   },
 
-  handleRecovery(event) {
+  async handleRecovery(event) {
     event.preventDefault();
-    const nameInput = document.getElementById('recoveryName');
-    const roleInput = document.getElementById('recoveryRole');
+    const emailInput = document.getElementById('recoveryEmail');
     const error = document.getElementById('wmsRecoveryError');
-    const name = nameInput.value.trim();
-    const role = roleInput.value.trim();
+    const submit = event.currentTarget?.querySelector('.auth-submit');
+    const email = String(emailInput?.value || '').trim();
+    const valido = Boolean(email && email.includes('@'));
 
-    nameInput.classList.toggle('is-invalid', !name);
-    roleInput.classList.toggle('is-invalid', !role);
-
-    if (!name || !role) {
-      error.textContent = 'Completá nombre y cargo/área.';
+    emailInput?.classList.toggle('is-invalid', !valido);
+    if (!valido) {
+      error.textContent = 'Ingresá un correo electrónico válido.';
       error.hidden = false;
-      (!name ? nameInput : roleInput).focus();
+      emailInput?.focus();
       return;
     }
 
-    this.showRecoverySent(name, role);
+    if (submit) submit.disabled = true;
+    const result = await SupabaseService.recuperarPassword(email);
+    if (submit) submit.disabled = false;
+
+    if (!result.ok) {
+      error.textContent = result.error || 'No fue posible procesar la recuperación.';
+      error.hidden = false;
+      return;
+    }
+
+    error.hidden = true;
+    this.showRecoverySent(email);
   },
 
-  showRecoverySent(name, role) {
+  showRecoverySent(email) {
     this.getPanel().innerHTML = `
       <div class="auth-state auth-state-center auth-state-success">
         <div class="auth-success-icon" aria-hidden="true">✓</div>
-        <h2 id="authTitle">¡Solicitud enviada!</h2>
-        <p>Se notificó al administrador sobre el requerimiento de <strong>${this.escapeHtml(name)}</strong> (${this.escapeHtml(role)}).</p>
+        <h2 id="authTitle">Revisá tu correo</h2>
+        <p>Si existe una cuenta asociada a <strong>${this.escapeHtml(email)}</strong>, recibirá las instrucciones para restablecer su contraseña.</p>
         <button type="button" class="btn-primary auth-submit auth-success-button" onclick="AuthController.showLogin()">Entendido</button>
       </div>
     `;
@@ -229,9 +257,9 @@ const AuthController = {
       </div>
     `;
 
-    this.queueLoadingStep(180, 30, 'Verificando conexión...', 'Comprobando acceso a la red');
-    this.queueLoadingStep(620, 55, 'Verificando conexión...', navigator.onLine ? 'Conexión verificada' : 'Modo local (sin red)');
-    this.queueLoadingStep(980, 80, 'Cargando entorno...', 'Sincronizando inventario');
+    this.queueLoadingStep(180, 30, 'Verificando conexión...', 'Conectando con Supabase');
+    this.queueLoadingStep(620, 55, 'Verificando sesión...', 'Validando identidad y rol WMS');
+    this.queueLoadingStep(980, 80, 'Cargando entorno...', 'Aplicando permisos del backend');
     this.queueLoadingStep(1330, 95, 'Cargando entorno...', 'Cargando módulos de seguridad');
     this.queueLoadingStep(1650, 100, 'Cargando entorno...', 'Carga completada');
     this.loadingTimers.push(setTimeout(() => this.showReady(), 1850));
@@ -297,8 +325,6 @@ const AuthController = {
   },
 
   escapeHtml(value) {
-    const element = document.createElement('span');
-    element.textContent = value;
-    return element.innerHTML;
+    return SeguridadService.escaparHtml(value);
   }
 };

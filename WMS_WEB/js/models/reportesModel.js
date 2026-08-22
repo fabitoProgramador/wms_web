@@ -1,83 +1,89 @@
-/** Reglas de negocio de Reportes Operacionales, trasladadas desde Programa MVC. */
+/**
+ * Generar Reporte: adaptador remoto exclusivo de Reportes Operacionales.
+ * No calcula estados ni lee StockModel; Supabase compila el reporte autoritativo.
+ */
 const ReportesModel = {
-  TIPOS_REPORTE: [
-    'REPORTE GENERAL',
-    'REPORTE DE RECHAZOS',
-    'REPORTE DE PROHIBICIONES',
-    'REPORTE SIN INFORMACION',
-    'REPORTE DE VERIFICACIONES',
-    'REPORTE SIN DM',
-    'REPORTE DE REPROCESO',
-    'REPORTE DE PEDIDOS',
-    'REPORTE AUTORIZADOS A ENVIAR'
-  ],
-
-  ESTADO_POR_REPORTE: {
-    'REPORTE DE RECHAZOS': 'RECHAZO',
-    'REPORTE DE PROHIBICIONES': 'PROHIBICIONES',
-    'REPORTE SIN INFORMACION': 'SIN INFORMACIÓN',
-    'REPORTE DE VERIFICACIONES': 'VERIFICACIÓN',
-    'REPORTE SIN DM': 'SIN DM',
-    'REPORTE DE REPROCESO': 'REPROCESO',
-    'REPORTE DE PEDIDOS': 'PEDIDO',
-    'REPORTE AUTORIZADOS A ENVIAR': 'AUTORIZADOS A ENVIAR'
+  numero(value, fallback = 0) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : fallback;
   },
 
-  columnas() {
-    return [
-      { id:'lote', label:'ID LOTE', width:148, value:p=>PalletModel.idLoteReal(p) || p.lote || '—' },
-      { id:'codigo_articulo', label:'N° ARTÍCULO', width:122, value:p=>PalletModel.numeroArticulo(p) },
-      { id:'articulo', label:'DESCRIPCIÓN', width:220, value:p=>PalletModel.descripcion(p) },
-      { id:'ubicacion', label:'ALMACÉN', width:140, value:p=>p.ubicacion || '—' },
-      { id:'kilos', label:'KILOS', width:96, value:p=>PalletModel.kilos(p), numeric:true },
-      { id:'cajas', label:'CAJAS', width:82, value:p=>Number(p.cajas) || 0, numeric:true },
-      { id:'fecha_fabricacion', label:'FEC. FABRIC.', width:126, value:p=>p.fecha_fabricacion || '—' },
-      { id:'estado_calidad', label:'EST. CALIDAD', width:132, value:p=>StockModel.normalizarEstadoCalidad(p.estado_calidad || p.est_calidad || p.calidad_estado) },
-      { id:'estado', label:'ESTADO', width:170, value:p=>p.estado || '—' },
-      { id:'info_calidad', label:'INFO CALIDAD', width:260, value:p=>p.info_calidad || '—' },
-      { id:'info_general', label:'INFO GENERAL', width:260, value:p=>p.info_general || '—' },
-      { id:'detector_metales', label:'DM', width:118, value:p=>p.detector_metales || '—' },
-      { id:'reservado', label:'RESERVADO', width:105, value:p=>p.reservado || '—' },
-      { id:'clasificacion_envio', label:'CLASIFICACIÓN ENVÍO', width:190, value:p=>p.clasificacion_envio || '—' }
-    ];
+  fecha(value) {
+    if (!value) return '—';
+    const raw = String(value);
+    const d = new Date(/^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00` : raw);
+    return Number.isNaN(d.getTime()) ? raw : d.toLocaleDateString('es-CL');
   },
 
-  pallets() { return StockModel.pallets(); },
-
-  filtrarParaReporte(tipo) {
-    const estado = this.ESTADO_POR_REPORTE[tipo];
-    const pallets = this.pallets();
-    return estado ? pallets.filter(p=>p.estado === estado) : pallets;
+  async rpc(nombre, parametros = {}) {
+    const response = await SupabaseService.rpc('reportes', nombre, parametros);
+    if (!response.ok) {
+      const error = new Error(response.error || `No fue posible ejecutar reportes.${nombre}.`);
+      error.estado = response.estado;
+      error.permiso = response.permiso;
+      error.red = response.red;
+      throw error;
+    }
+    return response.datos;
   },
 
-  compilar(tipo) {
-    const datos = this.filtrarParaReporte(tipo);
-    return { tipo, total:datos.length, vistaPrevia:datos.slice(0,25) };
+  normalizarItem(row = {}) {
+    const condiciones = Array.isArray(row.condiciones_wms) ? row.condiciones_wms.filter(Boolean) : [];
+    const estadoEfectivo = row.estado_operativo || row.estado_wms || row.estado_sap || 'SIN ESTADO';
+    return {
+      ...row,
+      id: row.id_lote || row.id || '',
+      lote_display: row.id_lote || row.id || '—',
+      articulo_display: row.itemcode || '—',
+      descripcion_display: row.itemname || '—',
+      kilos_display: this.numero(row.kilos),
+      cajas_display: this.numero(row.cajas),
+      fecha_fabricacion_display: this.fecha(row.fecha_fabricacion),
+      estado_sap_display: row.estado_sap || 'SIN INFORMACIÓN',
+      estado_wms_registrado_display: row.estado_wms_registrado || 'SIN ESTADO WMS PROPIO',
+      estado_wms_efectivo_display: estadoEfectivo,
+      flujo_display: row.estado_principal || estadoEfectivo,
+      condiciones_wms_array: condiciones,
+      condiciones_display: condiciones.length ? condiciones.join(' · ') : 'Sin condiciones pendientes',
+      decision_display: row.decision || 'Sin decisión gerencial',
+      modalidad_display: row.modalidad || '—',
+      detector_display: row.detector_metales || 'SIN INFORMACIÓN',
+      reserva_display: String(row.reservado || '').trim() || 'SIN RESERVA',
+      ultimo_evento: row.ultimo_evento || null
+    };
   },
 
-  valoresUnicos(columnaId) {
-    const col = this.columnas().find(x=>x.id===columnaId);
-    if (!col) return [];
-    return [...new Set(this.pallets().map(p=>String(col.value(p))))]
-      .sort((a,b)=>a.localeCompare(b,'es',{numeric:true,sensitivity:'base'}));
+  async catalogos() {
+    const data = await this.rpc('catalogos');
+    return {
+      raw:data,
+      tiposReporte:data?.tipos_reporte || [],
+      estados:data?.estados || [],
+      almacenes:data?.almacenes || []
+    };
   },
 
-  filtrarStock({busqueda='',almacen='TODOS',estado='TODOS',filtrosColumnas={}}={}) {
-    const q=String(busqueda).trim().toLocaleLowerCase('es-CL');
-    const columnas=this.columnas();
-    return this.pallets().filter(p=>{
-      if (almacen!=='TODOS' && p.ubicacion!==almacen) return false;
-      if (estado!=='TODOS' && p.estado!==estado) return false;
-      if (q && ![p.id,p.lote,p.articulo,p.estado].some(v=>String(v||'').toLocaleLowerCase('es-CL').includes(q))) return false;
-      return columnas.every(col=>{
-        const activos=filtrosColumnas[col.id];
-        return !activos || activos.has(String(col.value(p)));
-      });
+  async compilar(tipo, limite = 25) {
+    const data = await this.rpc('compilar', {
+      p_tipo:String(tipo || '').trim(),
+      p_limite:limite
     });
-  },
-
-  filasExportacion(pallets) {
-    const columnas=this.columnas();
-    return [columnas.map(c=>c.label),...pallets.map(p=>columnas.map(c=>c.value(p)))];
+    return {
+      raw:data,
+      tipo:data?.tipo || tipo,
+      tipoClave:data?.tipo_clave || '',
+      total:this.numero(data?.total),
+      totales:{
+        registros:this.numero(data?.totales?.pallets ?? data?.total),
+        cajas:this.numero(data?.totales?.cajas),
+        kilos:this.numero(data?.totales?.kilos)
+      },
+      vistaPrevia:(data?.vistaPrevia || []).map(row => this.normalizarItem(row)),
+      vistaPreviaLimite:this.numero(data?.vista_previa_limite, limite),
+      emitidoPor:data?.emitido_por || {},
+      emitidoEn:data?.emitido_en || null,
+      snapshotVersion:data?.snapshot_version || null,
+      semanticaEstados:data?.semantica_estados || ''
+    };
   }
 };

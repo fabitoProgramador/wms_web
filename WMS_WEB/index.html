@@ -4,70 +4,98 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>WMS WEB — Planta Olmué Parral</title>
-
-  <!-- Favicon oficial corporativo -->
   <link rel="icon" type="image/x-icon" href="assets/icono.ico">
   <link rel="shortcut icon" type="image/x-icon" href="assets/icono.ico">
-
-  <!-- Hojas de Estilo Modulares -->
   <link rel="stylesheet" href="css/main.css">
   <link rel="stylesheet" href="css/components.css">
   <link rel="stylesheet" href="css/dashboard.css">
-    <link rel="stylesheet" href="css/gruero.css">
+  <link rel="stylesheet" href="css/gruero.css">
   <link rel="stylesheet" href="css/inventory-operation.css">
-    <link rel="stylesheet" href="css/operaciones.css">
+  <link rel="stylesheet" href="css/operaciones.css">
+  <link rel="stylesheet" href="css/operaciones-backend.css">
   <link rel="stylesheet" href="css/stock.css">
   <link rel="stylesheet" href="css/labels.css">
   <link rel="stylesheet" href="css/reportes.css">
-    <link rel="stylesheet" href="css/mapa-2d5.css">
+  <link rel="stylesheet" href="css/mapa-2d5.css">
+  <link rel="stylesheet" href="css/user-access.css">
   <link rel="stylesheet" href="css/responsive.css">
   <link rel="stylesheet" href="css/theme-system.css">
 </head>
 <body>
-
-  <!-- Contenedor Raíz Dinámico -->
   <div id="appRoot"></div>
 
-  <!-- Configuración de la Aplicación -->
+  <!-- Configuración estable de aplicación. Ningún archivo de este bloque es una DB local. -->
   <script src="js/config/almacenes.js"></script>
   <script src="js/config/identidadPlanta.js"></script>
   <script src="js/config/turnos.js"></script>
   <script src="js/config/catalogo.js"></script>
   <script src="js/config/estados.js"></script>
   <script src="js/config/mapaConfig.js"></script>
-  <script src="js/config/destinosAnden.js"></script>
-    <script src="js/config/navegacion.js"></script>
+  <script src="js/config/navegacion.js"></script>
+  <script src="js/config/supabaseConfig.js"></script>
 
-  <!-- Servicios Transversales -->
+  <!-- Infraestructura transversal -->
   <script src="js/services/seguridadService.js"></script>
+  <script src="js/services/supabaseService.js"></script>
+  <script src="js/services/backendBootstrapService.js"></script>
+  <script src="js/services/legacyBusinessDataCleanupService.js"></script>
+  <script src="js/services/navigationPermissionService.js"></script>
   <script src="js/services/notificationService.js"></script>
   <script src="js/services/cameraScannerService.js"></script>
   <script src="js/services/undoService.js"></script>
-    <script src="js/services/grueroSyncService.js"></script>
+  <script src="js/services/grueroSyncService.js"></script>
   <script src="js/services/exportService.js"></script>
 
-  <!-- Modelos de Datos -->
+  <!-- Modelos base / mapa -->
   <script src="js/models/userModel.js"></script>
+  <script src="js/models/userAdminModel.js"></script>
   <script src="js/models/palletModel.js"></script>
-    <script src="js/models/mapaModel.js"></script>
-    <script src="js/services/grueroCodeResolver.js"></script>
-    <script src="js/services/mapaOfflineService.js"></script>
-  <script src="js/models/panelControlModel.js"></script>
-  <script src="js/models/operacionesModel.js"></script>
+  <script src="js/models/mapaModel.js"></script>
+  <script src="js/models/mapaCodigoModel.js"></script>
+  <script src="js/models/mapaInventarioModel.js"></script>
+  <script src="js/models/mapaProterBackendModel.js"></script>
+  <script src="js/models/mapaPostTunelBackendModel.js"></script>
+  <script src="js/models/andenBackendModel.js"></script>
+  <script src="js/services/grueroCodeResolver.js"></script>
+  <script src="js/services/mapaOfflineService.js"></script>
+  <script src="js/services/mapaCamarasBackendAdapter.js"></script>
+  <script src="js/services/grueroBackendAdapter.js"></script>
+
+  <!-- Panel de Control: sólo modelos RPC -->
+  <script src="js/models/dashboardModel.js"></script>
+  <script src="js/models/dashboardAnalysisModel.js"></script>
+  <script src="js/models/dashboardMonitorModel.js"></script>
+
+  <!-- Operaciones: backend autoritativo -->
+  <script src="js/models/operacionesBackendModel.js"></script>
+
+  <!-- Stock/lotes productivos RPC; StockModel es sólo una fachada síncrona del snapshot backend. -->
   <script src="js/models/stockModel.js"></script>
-  <script src="js/models/labelHistoryModel.js"></script>
+  <script src="js/models/stockPlantaModel.js"></script>
+  <script src="js/models/loteDetalladoModel.js"></script>
+  <script src="js/models/bitacoraModel.js"></script>
+  <script src="js/models/verificacionesModel.js"></script>
+
+  <!-- Operación Inventario: snapshot/cola offline + adaptador Supabase -->
   <script src="js/models/inventoryOperationModel.js"></script>
   <script src="js/services/inventoryOperationService.js"></script>
+  <script src="js/services/inventoryBackendAdapter.js"></script>
+
+  <!-- Reportes Operacionales -->
   <script src="js/models/reportesModel.js"></script>
+  <script src="js/models/reportesStockModel.js"></script>
+
+  <!-- Centro de Etiquetas: preferencias locales + snapshot/cola offline explícitos -->
   <script src="js/services/labelFormatService.js"></script>
   <script src="js/services/zebraPrintService.js"></script>
   <script src="js/services/labelService.js"></script>
+  <script src="js/models/labelHistoryModel.js"></script>
 
-  <!-- Renderizadores Gráficos -->
+  <!-- Renderizadores gráficos -->
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@7.4.2/dist/pixi.min.js" crossorigin="anonymous"></script>
-    <script src="js/views/renderers/pixiMapVisualLayer.js"></script>
-    <script src="js/views/renderers/mapaIsometricRenderer.js"></script>
-    <script src="js/views/renderers/mapa2DRenderer.js"></script>
+  <script src="js/views/renderers/pixiMapVisualLayer.js"></script>
+  <script src="js/views/renderers/mapaIsometricRenderer.js"></script>
+  <script src="js/views/renderers/mapa2DRenderer.js"></script>
   <script src="js/views/renderers/mapa1DRenderer.js"></script>
 
   <!-- Componentes UI -->
@@ -75,24 +103,63 @@
   <script src="js/views/components/palletLabelTemplate.js"></script>
   <script src="js/views/components/cameraHUD.js"></script>
 
-  <!-- Controladores Modulares -->
+  <!-- Controladores -->
   <script src="js/controllers/authController.js"></script>
   <script src="js/controllers/dashboardController.js"></script>
-    <script src="js/controllers/mapaController.js"></script>
-    <script src="js/controllers/grueroController.js"></script>
+  <script src="js/controllers/dashboardAnalysisController.js"></script>
+  <script src="js/controllers/dashboardMonitorController.js"></script>
+  <script src="js/controllers/mapaController.js"></script>
+  <script src="js/controllers/mapaCodigoController.js"></script>
+  <script src="js/controllers/mapaInventarioController.js"></script>
+  <script src="js/controllers/grueroController.js"></script>
   <script src="js/controllers/inventoryOperationController.js"></script>
+  <script src="js/controllers/stockPlantaController.js"></script>
+  <script src="js/controllers/loteDetalladoController.js"></script>
   <script src="js/controllers/stockController.js"></script>
   <script src="js/controllers/labelController.js"></script>
   <script src="js/controllers/andenController.js"></script>
+  <script src="js/services/andenPackingService.js"></script>
+  <script src="js/controllers/andenBackendController.js"></script>
+  <script src="js/services/andenBackendIntegration.js"></script>
   <script src="js/controllers/operacionesController.js"></script>
+  <script src="js/controllers/operacionesBackendController.js"></script>
   <script src="js/controllers/reportesController.js"></script>
+  <script src="js/controllers/reportesStockController.js"></script>
+  <script src="js/controllers/bitacoraOperativaController.js"></script>
+  <script src="js/services/bitacoraPendingCardRenderer.js"></script>
+  <script src="js/controllers/verificacionesController.js"></script>
   <script src="js/controllers/bitacoraController.js"></script>
   <script src="js/controllers/userAdminController.js"></script>
   <script src="js/controllers/appController.js"></script>
+  <script src="js/services/userProfileService.js"></script>
 
-  <!-- Inicialización de la Aplicación -->
+  <!-- Adaptadores activos del visor de Mapa mientras conserva su UI histórica. -->
+  <script src="js/services/mapaProterBackendBridge.js"></script>
+  <script src="js/services/mapaPostTunelBackendBridge.js"></script>
+  <script src="js/services/mapaCamarasActionGuard.js"></script>
+  <script src="js/services/mapaSubmodulosBackendBridge.js"></script>
+
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
+      LegacyBusinessDataCleanupService.purge();
+      await BackendBootstrapService.prepararInicio();
+      BackendBootstrapService.instalarHooks();
+
+      // Primero se hidratan snapshots offline derivados del backend. Ningún
+      // módulo crea datos de negocio locales durante el arranque.
+      await LabelService.initialize();
+      LabelService.install();
+      GrueroBackendAdapter.install();
+      InventoryBackendAdapter.install();
+      BitacoraPendingCardRenderer.install();
+      UserProfileService.install();
+
+      MapaProterBackendBridge.install();
+      MapaPostTunelBackendBridge.install();
+      MapaCamarasActionGuard.install();
+      MapaSubmodulosBackendBridge.install();
+      AndenBackendIntegration.install();
+      NavigationPermissionService.install(AppController);
       AppController.init();
     });
   </script>
