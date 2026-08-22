@@ -527,5 +527,33 @@ const AndenBackendIntegration = {
         this.toast(error.message || 'No fue posible validar los datos de la corrección.', 'error');
       }
     };
+
+    C.populateRecentLoads = async function() {
+      const root = document.getElementById('dockRecentLoads');
+      if (!root) return;
+      const tab = this.activeTab;
+      root.innerHTML = '<p class="empty-message">Cargando despachos recientes…</p>';
+      const rows = await this.recentLoads();
+      if (tab !== this.activeTab || root !== document.getElementById('dockRecentLoads')) return;
+      if (!rows.length) {
+        root.innerHTML = '<p class="empty-message">Todavía no hay despachos cerrados en esta pestaña.</p>';
+        return;
+      }
+      root.innerHTML = rows.map(c => `<div><b>${this.esc(c.folio || `#${c.despacho_id}`)}</b><span>${this.esc(c.empresa || c.destino || '—')}</span><time>${this.esc(this.dateTime(c.fecha_hora))}</time><small>${this.fmt(c.pallets)} plt · ${this.fmt(c.cajas)} cajas</small><button data-recent-backend-id="${this.esc(c.despacho_id)}">Ver</button></div>`).join('');
+      root.querySelectorAll('[data-recent-backend-id]').forEach(btn => btn.onclick = async () => {
+        this.subsection = 'historial';
+        this.historyType = tab;
+        this.historyId = Number(btn.dataset.recentBackendId);
+        await this.loadHistoryDetail(this.historyId);
+        this.historyMode = 'ver';
+        this.render();
+      });
+    };
+
+    const renderCurrentWithRecentLoads = C.renderCurrent.bind(C);
+    C.renderCurrent = function() {
+      renderCurrentWithRecentLoads();
+      this.populateRecentLoads();
+    };
   }
 };
